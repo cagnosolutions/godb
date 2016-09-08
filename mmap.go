@@ -1,4 +1,4 @@
-package ngin
+package godb
 
 import (
 	"bytes"
