@@ -5,13 +5,13 @@ import "sort"
 // Sorted Tree Map
 type STMap struct {
 	m map[string][]byte
-	s sort.StringSlice
+	s []string
 }
 
 func NewSTMap() *STMap {
 	return &STMap{
 		m: make(map[string][]byte, 0),
-		s: make(sort.StringSlice, 0),
+		s: make([]string, 0),
 	}
 }
 
@@ -20,70 +20,80 @@ func (stm *STMap) Has(key string) bool {
 	return ok
 }
 
+// safe; only add new entry if it doesn't already exist
 func (stm *STMap) Add(key string, val []byte) {
-	// only add new entry if it doesn't already exist
 	if _, ok := stm.m[key]; !ok {
-		stm.s = append(stm.s, key)
 		stm.m[key] = val
+		stm.s = append(stm.s, key)
 	}
-	stm.s.Sort() // sort the index
 }
 
+// unsafe; add or updates an entry
 func (stm *STMap) Set(key string, val []byte) {
 	if _, ok := stm.m[key]; ok {
-		// update
-		i := stm.s.Search(key)
+		// key exists; so update / overwrite entry
+		i := sort.SearchStrings(stm.s, key)
 		stm.s[i] = key
 	} else {
-		// insert
+		// key doesn't exist; so add new entry
 		stm.s = append(stm.s, key)
 	}
-	stm.m[key] = val // update/insert into map
-	stm.s.Sort()     // sort the index
+	stm.m[key] = val // update / insert into map
 }
 
+// return value by key
 func (stm *STMap) Get(key string) []byte {
 	if val, ok := stm.m[key]; ok {
+		// key exists; return value
 		return val
 	}
 	return nil
 }
 
+// delete entry by key
 func (stm *STMap) Del(key string) {
 	if _, ok := stm.m[key]; ok {
-		// if it exists, delte from map
+		// key exists; delete from map
 		delete(stm.m, key)
-
+		// check if sorted
+		if !sort.StringsAreSorted(stm.s) {
+			// lets sort them
+			sort.Strings(stm.s)
+		}
 		// find index of key in sorted list
-		stm.s.Sort()
-		i := stm.s.Search(key)
-		// once we find the index, delete it...
+		i := sort.SearchStrings(stm.s, key)
+		// once we find the index, delete it
 		copy(stm.s[i:], stm.s[i+1:])
 		stm.s[len(stm.s)-1] = ""
 		stm.s = stm.s[:len(stm.s)-1]
-		// then resort
-		stm.s.Sort()
 	}
 }
 
+// return all entries in sorted order
 func (stm *STMap) All() (all [][]byte) {
-	stm.s.Sort()
-	for i := 0; i < len(stm.m); i++ {
-		key := stm.s[i]
-		if _, ok := stm.m[key]; !ok {
-			continue
-		}
-		all = append(all, stm.m[key])
+	// check if sorted
+	if !sort.StringsAreSorted(stm.s) {
+		// lets sort them
+		sort.Strings(stm.s)
 	}
-	return
+	// create value collection
+	var vals [][]byte
+	// loop sorted key slice
+	for _, key := range stm.s {
+		vals = append(vals, stm.m[key])
+	}
+	return vals
 }
 
+// return total number of entries
 func (stm *STMap) Count() int {
-	return len(stm.m)
+	return len(stm.s)
 }
 
+// remove all entries; close
 func (stm *STMap) Close() {
 	for k, _ := range stm.m {
 		stm.Del(k)
 	}
+	stm.m, stm.s = nil, nil
 }
