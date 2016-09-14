@@ -3,121 +3,8 @@ package godb
 import (
 	"bytes"
 	"fmt"
-	"strings"
 	"unsafe"
 )
-
-/* ##### START-PRINTER ##### */
-
-// var queue *node = nil
-//
-// // utility function to give the length in edges
-// // for the path from any node to the root
-// func path_to_root(root, child *node) int {
-// 	var length int
-// 	var c *node = child
-// 	for c != root {
-// 		c = c.rent
-// 		length++
-// 	}
-// 	return length
-// }
-//
-// // helper function for printing the
-// // tree out. (see print_tree)
-// func enqueue(new_node *node) {
-// 	var c *node
-// 	if queue == nil {
-// 		queue = new_node
-// 		queue.next = nil
-// 	} else {
-// 		c = queue
-// 		for c.next != nil {
-// 			c = c.next
-// 		}
-// 		c.next = new_node
-// 		new_node.next = nil
-// 	}
-// }
-//
-// // helper function for printing the
-// // tree out. (see print_tree)
-// func dequeue() *node {
-// 	var n *node = queue
-// 	queue = queue.next
-// 	n.next = nil
-// 	return n
-// }
-//
-// // prints the bottom row of keys of the tree
-// func print_leaves(root *node) {
-// 	fmt.Println("Printing Leaves...")
-// 	var i int
-// 	var c *node = root
-// 	if root == nil {
-// 		fmt.Printf("Empty tree.\n")
-// 		return
-// 	}
-// 	for !c.isLeaf() {
-// 		c = (*node)(unsafe.Pointer(c.ptrs[0]))
-// 	}
-// 	for {
-// 		for i = 0; i < M-1; i++ {
-// 			if c.keys[i] == nil {
-// 				fmt.Printf("___, ")
-// 				continue
-// 			}
-// 			fmt.Printf("%s, ", c.keys[i])
-// 		}
-// 		if c.ptrs[M-1] != nil {
-// 			fmt.Printf(" | ")
-// 			c = (*node)(unsafe.Pointer(c.ptrs[M-1]))
-// 		} else {
-// 			break
-// 		}
-// 	}
-// 	fmt.Printf("\n\n")
-// }
-//
-// // print tree out
-// func print_tree(root *node) {
-// 	fmt.Println("Printing Tree...")
-// 	var i, rank, new_rank int
-// 	if root == nil {
-// 		fmt.Printf("Empty tree.\n")
-// 		return
-// 	}
-// 	queue = nil
-// 	enqueue(root)
-// 	for queue != nil {
-// 		n := dequeue()
-// 		if n.rent != nil && n == (*node)(unsafe.Pointer(n.rent.ptrs[0])) {
-// 			new_rank = path_to_root(root, n)
-// 			if new_rank != rank {
-// 				rank = new_rank
-// 				fmt.Printf("\n")
-// 			}
-// 		}
-// 		for i = 0; i < n.numk; i++ {
-// 			fmt.Printf("%s, ", n.keys[i])
-// 		}
-// 		if !n.isLeaf() {
-// 			for i = 0; i <= n.numk; i++ {
-// 				enqueue((*node)(unsafe.Pointer(n.ptrs[i])))
-// 			}
-// 		}
-// 		fmt.Printf("| ")
-// 	}
-// 	fmt.Printf("\n\n")
-// }
-//
-// func (t *btree) Print() {
-// 	print_tree(t.root)
-// 	//fmt.Println()
-// 	//print_leaves(t.root)
-// }
-
-/* ##### END-PRINTER ##### */
 
 const M = 4 // (ORDER) 56
 
@@ -148,7 +35,7 @@ type node struct {
 	ptrs [M]unsafe.Pointer // might just have to do away with this, and do an int instead?! why not before??!
 	rent *node
 	leaf bool
-	next *node
+	//next *node
 }
 
 func (n *node) Size() int {
@@ -905,84 +792,4 @@ func cut(length int) int {
 		return length / 2
 	}
 	return length/2 + 1
-}
-
-/*
- * Printing methods
- */
-
-func enQueue(n *node) {
-	var c *node
-	if queue == nil {
-		queue = n
-		queue.next = nil
-	} else {
-		c = queue
-		for c.next != nil {
-			c = c.next
-		}
-		c.next = n
-		n.next = nil
-	}
-}
-
-func deQueue() *node {
-	var n *node = queue
-	queue = queue.next
-	n.next = nil
-	return n
-}
-
-func pathToRoot(root, child *node) int {
-	var length int
-	var c *node = child
-	for c != root {
-		c = c.rent
-		length++
-	}
-	return length
-}
-
-// type Printer struct {
-// 	*node
-// 	next *node
-// }
-
-func (t *btree) String() string {
-	var i, rank, newRank int
-	if t.root == nil {
-		return "[]"
-	}
-	queue = nil
-	var btree string
-	enQueue(t.root)
-	btree = "[["
-	for queue != nil {
-		n := deQueue()
-		if n.rent != nil && n == asNode(n.rent.ptrs[0]) {
-			newRank = pathToRoot(t.root, n)
-			if newRank != rank {
-				rank = newRank
-				f := strings.LastIndex(btree, ",")
-				btree = btree[:f] + btree[f+1:]
-				btree += "],["
-			}
-		}
-		btree += "["
-		var keys []string
-		for i = 0; i < n.numk; i++ {
-			keys = append(keys, fmt.Sprintf("%q", n.keys[i]))
-		}
-		btree += strings.Join(keys, ",")
-		if !n.isLeaf() {
-			for i = 0; i <= n.numk; i++ {
-				enQueue(asNode(n.ptrs[i]))
-			}
-		}
-		btree += "],"
-	}
-	f := strings.LastIndex(btree, ",")
-	btree = btree[:f] + btree[f+1:]
-	btree += "]]"
-	return btree
 }

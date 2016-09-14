@@ -7,7 +7,7 @@ import (
 	"github.com/cagnosolutions/godb"
 )
 
-const COUNT = 12
+const COUNT = 64
 
 func gen(str string, args ...interface{}) []byte {
 	return []byte(fmt.Sprintf(str, args...))
@@ -59,6 +59,6 @@ func main() {
 
 	fmt.Println()
 
-	fmt.Println(t.String())
+	// fmt.Println(t.String())
 
 }
