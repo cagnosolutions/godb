@@ -3,19 +3,30 @@ package godb
 import (
 	"bytes"
 	"fmt"
+	"sync"
 	"unsafe"
 )
 
 const M = 4 // (ORDER) 56
 
-var zero key_t = nil
-
+/*
 func asNode(p unsafe.Pointer) *node {
 	return (*node)(unsafe.Pointer(p))
 }
 
 func asRecord(p unsafe.Pointer) *record {
 	return (*record)(unsafe.Pointer(p))
+}
+*/
+
+var (
+	nodePool       = sync.Pool{New: func() interface{} { return &node{} }}
+	recdPool       = sync.Pool{New: func() interface{} { return &record{} }}
+	zero     key_t = nil
+)
+
+func compare(a, b key_t) int {
+	return bytes.Compare(a, b)
 }
 
 func NewBTree() *btree {
@@ -24,18 +35,13 @@ func NewBTree() *btree {
 
 type key_t []byte
 
-func compare(a, b key_t) int {
-	return bytes.Compare(a, b)
-}
-
 // node represents a btree's node
 type node struct {
 	numk int
 	keys [M - 1]key_t
-	ptrs [M]unsafe.Pointer // might just have to do away with this, and do an int instead?! why not before??!
+	ptrs [M]unsafe.Pointer
 	rent *node
 	leaf bool
-	//next *node
 }
 
 func (n *node) Size() int {

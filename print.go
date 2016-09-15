@@ -123,7 +123,11 @@ func (t *btree) Print() {
 	//print_leaves(t.root)
 }
 
-func (t *btree) String() string {
+func (t *btree) PrintJSON() {
+	t.print_tree_json()
+}
+
+func (t *btree) print_tree_json() string {
 	var i, rank, newRank int
 	if t.root == nil {
 		return "[]"
