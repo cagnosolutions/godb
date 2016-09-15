@@ -138,7 +138,7 @@ func (t *btree) print_tree_json() string {
 	btree = "[["
 	for queue != nil {
 		prt := dequeue()
-		if prt.node.rent != nil && prt.node == asNode(prt.node.rent.ptrs[0]) {
+		if prt.node.rent != nil && prt.node == (*node)(unsafe.Pointer(prt.node.rent.ptrs[0])) {
 			newRank = path_to_root(t.root, prt.node)
 			if newRank != rank {
 				rank = newRank
@@ -155,7 +155,7 @@ func (t *btree) print_tree_json() string {
 		btree += strings.Join(keys, ",")
 		if !prt.node.isLeaf() {
 			for i = 0; i <= prt.node.numk; i++ {
-				enqueue(asNode(prt.node.ptrs[i]))
+				enqueue((*node)(unsafe.Pointer(prt.node.ptrs[i])))
 			}
 		}
 		btree += "],"
