@@ -15,7 +15,7 @@ func gen(str string, args ...interface{}) []byte {
 
 func main() {
 
-	t := godb.NewBTree()
+	t := new(godb.btree)
 
 	a := func() map[int]struct{} {
 		n := make(map[int]struct{}, 0)

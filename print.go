@@ -64,7 +64,7 @@ func print_leaves(root *node) {
 		fmt.Printf("Empty tree.\n")
 		return
 	}
-	for !c.isLeaf() {
+	for !c.leaf {
 		c = (*node)(unsafe.Pointer(c.ptrs[0]))
 	}
 	for {
@@ -107,7 +107,7 @@ func print_tree(root *node) {
 		for i = 0; i < prt.node.numk; i++ {
 			fmt.Printf("%s, ", prt.node.keys[i])
 		}
-		if !prt.node.isLeaf() {
+		if !prt.node.leaf {
 			for i = 0; i <= prt.node.numk; i++ {
 				enqueue((*node)(unsafe.Pointer(prt.node.ptrs[i])))
 			}
@@ -153,7 +153,7 @@ func (t *btree) print_tree_json() string {
 			keys = append(keys, fmt.Sprintf("%q", prt.node.keys[i]))
 		}
 		btree += strings.Join(keys, ",")
-		if !prt.node.isLeaf() {
+		if !prt.node.leaf {
 			for i = 0; i <= prt.node.numk; i++ {
 				enqueue((*node)(unsafe.Pointer(prt.node.ptrs[i])))
 			}
@@ -217,7 +217,7 @@ func (t *btree) print_tree_json() string {
 // 		fmt.Printf("Empty tree.\n")
 // 		return
 // 	}
-// 	for !c.isLeaf() {
+// 	for !c.leaf {
 // 		c = (*node)(unsafe.Pointer(c.ptrs[0]))
 // 	}
 // 	for {
@@ -260,7 +260,7 @@ func (t *btree) print_tree_json() string {
 // 		for i = 0; i < n.numk; i++ {
 // 			fmt.Printf("%s, ", n.keys[i])
 // 		}
-// 		if !n.isLeaf() {
+// 		if !n.leaf {
 // 			for i = 0; i <= n.numk; i++ {
 // 				enqueue((*node)(unsafe.Pointer(n.ptrs[i])))
 // 			}
@@ -302,7 +302,7 @@ func (t *btree) print_tree_json() string {
 // 			keys = append(keys, fmt.Sprintf("%q", n.keys[i]))
 // 		}
 // 		btree += strings.Join(keys, ",")
-// 		if !n.isLeaf() {
+// 		if !n.leaf {
 // 			for i = 0; i <= n.numk; i++ {
 // 				enqueue(asNode(n.ptrs[i]))
 // 			}

@@ -7,17 +7,7 @@ import (
 	"unsafe"
 )
 
-const M = 4 // (ORDER) 56
-
-/*
-func asNode(p unsafe.Pointer) *node {
-	return (*node)(unsafe.Pointer(p))
-}
-
-func asRecord(p unsafe.Pointer) *record {
-	return (*record)(unsafe.Pointer(p))
-}
-*/
+const M = 128
 
 var (
 	nodePool       = sync.Pool{New: func() interface{} { return &node{} }}
@@ -25,15 +15,11 @@ var (
 	zero     key_t = nil
 )
 
+type key_t []byte
+
 func compare(a, b key_t) int {
 	return bytes.Compare(a, b)
 }
-
-func NewBTree() *btree {
-	return &btree{}
-}
-
-type key_t []byte
 
 // node represents a btree's node
 type node struct {
@@ -42,19 +28,6 @@ type node struct {
 	ptrs [M]unsafe.Pointer
 	rent *node
 	leaf bool
-}
-
-func (n *node) Size() int {
-	size := int(unsafe.Sizeof(*n))
-	for i := range (*n).keys {
-		size += cap((*n).keys[i]) * int(unsafe.Alignof((*n).keys[i]))
-	}
-
-	return size
-}
-
-func (n *node) isLeaf() bool {
-	return n.leaf
 }
 
 func (n *node) hasKey(k key_t) int {
@@ -70,14 +43,6 @@ func (n *node) hasKey(k key_t) int {
 type record struct {
 	key key_t
 	val []byte
-}
-
-func (r *record) Key() key_t {
-	return r.key
-}
-
-func (r *record) Val() []byte {
-	return r.val
 }
 
 // btree represents the main b+btree
@@ -407,7 +372,7 @@ func findLeaf(root *node, key key_t) *node {
 		return c
 	}
 	var i int
-	for !c.isLeaf() {
+	for !c.leaf {
 		i = 0
 		for i < c.numk {
 			if compare(key, c.keys[i]) >= 0 {
@@ -442,7 +407,7 @@ func (t *btree) BFS() {
 		return
 	}
 	c, h := t.root, 0
-	for !c.isLeaf() {
+	for !c.leaf {
 		c = (*node)(unsafe.Pointer(c.ptrs[0]))
 		h++
 	}
@@ -474,7 +439,7 @@ func findFirstLeaf(root *node) *node {
 		return root
 	}
 	c := root
-	for !c.isLeaf() {
+	for !c.leaf {
 		c = (*node)(unsafe.Pointer(c.ptrs[0]))
 	}
 	return c
@@ -516,7 +481,7 @@ func removeEntryFromNode(n *node, key key_t, ptr unsafe.Pointer) *node {
 	}
 	// remove ptr and shift other ptrs accordingly
 	// first determine the number of ptrs
-	if n.isLeaf() {
+	if n.leaf {
 		numPtrs = n.numk
 	} else {
 		numPtrs = n.numk + 1
@@ -533,7 +498,7 @@ func removeEntryFromNode(n *node, key key_t, ptr unsafe.Pointer) *node {
 	n.numk--
 	// set other ptrs to nil for tidiness; remember leaf
 	// nodes use the last ptr to point to the next leaf
-	if n.isLeaf() {
+	if n.leaf {
 		for i := n.numk; i < M-1; i++ {
 			n.ptrs[i] = nil
 		}
@@ -560,7 +525,7 @@ func deleteEntry(root, n *node, key key_t, ptr unsafe.Pointer) *node {
 
 	var minKeys int
 	// case: delete from inner node
-	if n.isLeaf() {
+	if n.leaf {
 		minKeys = cut(M - 1)
 	} else {
 		minKeys = cut(M) - 1
@@ -583,7 +548,7 @@ func deleteEntry(root, n *node, key key_t, ptr unsafe.Pointer) *node {
 	} else {
 		neighbor = (*node)(unsafe.Pointer(n.rent.ptrs[neighborIndex]))
 	}
-	if n.isLeaf() {
+	if n.leaf {
 		capacity = M
 	} else {
 		capacity = M - 1
@@ -608,7 +573,7 @@ func adjustRoot(root *node) *node {
 	// promote first (only) child as the
 	// new root node. If it's a leaf then
 	// the while btree is empty...
-	if !root.isLeaf() {
+	if !root.leaf {
 		newRoot = (*node)(unsafe.Pointer(root.ptrs[0]))
 		newRoot.rent = nil
 	} else {
@@ -633,7 +598,7 @@ func coalesceNodes(root, n, neighbor *node, neighborIndex int, prime key_t) *nod
 	neighborInsertionIndex = neighbor.numk
 	// case nonleaf node, append k_prime and the following ptr.
 	// append all ptrs and keys for the neighbors.
-	if !n.isLeaf() {
+	if !n.leaf {
 		// append k_prime (key)
 		neighbor.keys[neighborInsertionIndex] = prime
 		neighbor.numk++
@@ -677,14 +642,14 @@ func redistributeNodes(root, n, neighbor *node, neighborIndex, primeIndex int, p
 	var tmp *node
 	// case: node n has a neighnor to the left
 	if neighborIndex != -1 {
-		if !n.isLeaf() {
+		if !n.leaf {
 			n.ptrs[n.numk+1] = n.ptrs[n.numk]
 		}
 		for i = n.numk; i > 0; i-- {
 			n.keys[i] = n.keys[i-1]
 			n.ptrs[i] = n.ptrs[i-1]
 		}
-		if !n.isLeaf() {
+		if !n.leaf {
 			n.ptrs[0] = neighbor.ptrs[neighbor.numk]
 			tmp = (*node)(unsafe.Pointer(n.ptrs[0]))
 			tmp.rent = n
@@ -699,7 +664,7 @@ func redistributeNodes(root, n, neighbor *node, neighborIndex, primeIndex int, p
 		}
 	} else {
 		// case: n is left most child (n has no left neighbor)
-		if n.isLeaf() {
+		if n.leaf {
 			n.keys[n.numk] = neighbor.keys[0]
 			n.ptrs[n.numk] = neighbor.ptrs[0]
 			n.rent.keys[primeIndex] = neighbor.keys[1]
@@ -714,7 +679,7 @@ func redistributeNodes(root, n, neighbor *node, neighborIndex, primeIndex int, p
 			neighbor.keys[i] = neighbor.keys[i+1]
 			neighbor.ptrs[i] = neighbor.ptrs[i+1]
 		}
-		if !n.isLeaf() {
+		if !n.leaf {
 			neighbor.ptrs[i] = neighbor.ptrs[i+1]
 		}
 	}
@@ -727,7 +692,7 @@ func destroybtreeNodes(n *node) {
 	if n == nil {
 		return
 	}
-	if n.isLeaf() {
+	if n.leaf {
 		for i := 0; i < n.numk; i++ {
 			n.ptrs[i] = nil
 		}
@@ -771,7 +736,7 @@ func (t *btree) Count() int {
 		return -1
 	}
 	c := t.root
-	for !c.isLeaf() {
+	for !c.leaf {
 		c = (*node)(unsafe.Pointer(c.ptrs[0]))
 	}
 	var size int
