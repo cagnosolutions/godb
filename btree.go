@@ -6,7 +6,7 @@ import (
 	"unsafe"
 )
 
-const M = 128
+const M = 16
 
 var (
 	nodePool       = sync.Pool{New: func() interface{} { return &node{} }}
