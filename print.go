@@ -68,15 +68,34 @@ func print_leaves(root *node) {
 		c = (*node)(unsafe.Pointer(c.ptrs[0]))
 	}
 	for {
+		/*
+			for i = 0; i < M-1; i++ {
+				if c.keys[i] == nil {
+					fmt.Printf("___, ")
+					continue
+				}
+				//fmt.Printf("%s, ", c.keys[i])
+				// extract record / value instead
+				rec := (*record)(unsafe.Pointer(c.ptrs[i]))
+				fmt.Printf("%s, ", rec.val)
+			}
+			if c.ptrs[M-1] != nil {
+				fmt.Printf(" | ")
+				c = (*node)(unsafe.Pointer(c.ptrs[M-1]))
+			} else {
+				break
+			}
+		*/
 		for i = 0; i < M-1; i++ {
-			if c.keys[i] == nil {
+			if r := (*record)(unsafe.Pointer(c.ptrs[i])); r == nil {
 				fmt.Printf("___, ")
 				continue
+			} else {
+				fmt.Printf("%s ", r.val)
 			}
-			fmt.Printf("%s, ", c.keys[i])
 		}
 		if c.ptrs[M-1] != nil {
-			fmt.Printf(" | ")
+			fmt.Printf(" || ")
 			c = (*node)(unsafe.Pointer(c.ptrs[M-1]))
 		} else {
 			break
@@ -120,7 +139,7 @@ func print_tree(root *node) {
 func (t *btree) Print() {
 	print_tree(t.root)
 	//fmt.Println()
-	//print_leaves(t.root)
+	print_leaves(t.root)
 }
 
 func (t *btree) PrintJSON() {

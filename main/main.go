@@ -15,7 +15,7 @@ func gen(str string, args ...interface{}) []byte {
 
 func main() {
 
-	t := new(godb.btree)
+	t := godb.NewBTree()
 
 	a := func() map[int]struct{} {
 		n := make(map[int]struct{}, 0)
@@ -29,32 +29,32 @@ func main() {
 	fmt.Printf("\nKeys Generated: %d\n\n", len(a))
 
 	for c, _ := range a {
-		n := gen("key-val-%.3d", c)
-		fmt.Printf("inserting key: %s\n", n)
-		t.Set(n, n)
+		k, v := gen("key-%.2d", c), gen("val-%.2d", c)
+		fmt.Printf("inserting key: %s, val: %s\n", k, v)
+		t.Set(k, v)
 	}
 
 	fmt.Printf("\nTree contains %d entries...\n\n", t.Count())
 
 	for c, _ := range a {
-		n := gen("key-val-%.3d", c)
-		x := t.Get(n)
-		fmt.Printf("got val: %s\n", x)
+		k := gen("key-%.2d", c)
+		v := t.Get(k)
+		fmt.Printf("got val: %s, for key: %s\n", v, k)
 	}
 
 	fmt.Println()
 
 	t.Print()
 
-	// fmt.Println("Deleting entries\n")
-	//
-	// for c, _ := range a {
-	// 	n := gen("key-val-%.3d", c)
-	// 	t.Del(n)
-	// 	fmt.Printf("deleted key: %s\n\n", n)
-	// 	t.Print()
-	// }
-	//
+	fmt.Println("Deleting entries\n")
+
+	for c, _ := range a {
+		k := gen("key-%.2d", c)
+		t.Del(k)
+		fmt.Printf("deleting key: %s\n", k)
+		t.Print()
+	}
+
 	// t.Close()
 
 	fmt.Println()

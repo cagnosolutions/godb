@@ -2,7 +2,6 @@ package godb
 
 import (
 	"bytes"
-	"fmt"
 	"sync"
 	"unsafe"
 )
@@ -14,6 +13,20 @@ var (
 	recdPool       = sync.Pool{New: func() interface{} { return &record{} }}
 	zero     key_t = nil
 )
+
+func EncUint32(b []byte) uint32 {
+	_ = b[3] // early bounds check; hint to compiler
+	return uint32(b[3]) | uint32(b[2])<<8 | uint32(b[1])<<16 | uint32(b[0])<<24
+}
+
+func DecUint32(v uint32) (b []byte) {
+	_ = b[3] // early bounds check to guarantee safety of writes below
+	b[0] = byte(v >> 24)
+	b[1] = byte(v >> 16)
+	b[2] = byte(v >> 8)
+	b[3] = byte(v)
+	return
+}
 
 type key_t []byte
 
@@ -47,13 +60,32 @@ type record struct {
 
 // btree represents the main b+btree
 type btree struct {
-	root *node
+	root  *node
+	count int
+	sync.RWMutex
+}
+
+func NewBTree() *btree {
+	return &btree{}
+}
+
+func (t *btree) incr() {
+	t.RLock()
+	t.count++
+	t.RUnlock()
+}
+
+func (t *btree) decr() {
+	t.RLock()
+	t.count--
+	t.RUnlock()
 }
 
 // Has returns a boolean indicating weather or not the
 // provided key and associated record / value exists.
 func (t *btree) Has(key key_t) bool {
-	return t.find(key) != nil
+	_, ptr := t.find(key)
+	return ptr != nil
 }
 
 // Add inserts a new record using provided key.
@@ -65,21 +97,38 @@ func (t *btree) Add(key key_t, val []byte) {
 	// if the btree is empty
 	if t.root == nil {
 		t.root = startNewbtree(key, ptr)
+		t.incr()
 		return
 	}
 	// btree already exists, lets see what we
 	// get when we try to find the correct leaf
 	leaf := findLeaf(t.root, key)
 	// ensure the leaf does not contain the key
+
+	///*
 	if leaf.hasKey(key) > -1 {
-		return
+		return // key already exists, don't add anything
 	}
+	//*/
+
+	/*
+		// hasKey in place
+		// ensure the leaf does not contain the key
+		for i := 0; i < leaf.numk; i++ {
+			if compare(key, leaf.keys[i]) > -1 {
+				return // key exists; don't add anything.
+			}
+		}
+	*/
+
 	// btree already exists, and ready to insert into
 	if leaf.numk < M-1 {
 		insertIntoLeaf(leaf, ptr.key, ptr)
+		t.incr()
 		return
 	}
 	// otherwise, insert, split, and balance... returning updated root
+	t.incr()
 	t.root = insertIntoLeafAfterSplitting(t.root, leaf, ptr.key, ptr)
 }
 
@@ -92,26 +141,43 @@ func (t *btree) Set(key key_t, val []byte) {
 	// if the btree is empty, start a new one
 	if t.root == nil {
 		t.root = startNewbtree(key, &record{key, val})
+		t.incr()
 		return
 	}
 
 	// btree already exists, lets see what we
 	// get when we try to find the correct leaf
 	leaf := findLeaf(t.root, key)
-	// ensure the leaf does not contain the key
+	// find correct key index, set value and return
+
+	///* ORIG
 	if i := leaf.hasKey(key); i > -1 {
 		(*record)(unsafe.Pointer(leaf.ptrs[i])).val = val
-		return
+		return // overwriting existing record
 	}
+	//*/
 
-	// create record ptr for given value
-	ptr := &record{key, val}
+	/*
+		// hasKey in place
+		// find correct key index, set value and return
+		for i := 0; i < leaf.numk; i++ {
+			if compare(key, leaf.keys[i]) > -1 {
+				(*record)(unsafe.Pointer(leaf.ptrs[i])).val = val
+				return // overwrite existing record
+			}
+		}
+	*/
+
+	// otherwise, create record ptr for given value
+	ptr := &record{key, val} // add a new record
 	// if the leaf has room, then insert key and record
 	if leaf.numk < M-1 {
 		insertIntoLeaf(leaf, ptr.key, ptr)
+		t.incr()
 		return
 	}
 	// otherwise, insert, split, and balance... returning updated root
+	t.incr()
 	t.root = insertIntoLeafAfterSplitting(t.root, leaf, ptr.key, ptr)
 }
 
@@ -345,27 +411,32 @@ func (t *btree) Get(key key_t) []byte {
 	return (*record)(unsafe.Pointer(n.ptrs[i])).val
 }
 
-func (t *btree) find(key key_t) unsafe.Pointer {
-	n := findLeaf(t.root, key)
-	if n == nil {
-		return nil
+// find is IDENTICAL TO GET, ONLY IT RETURNS AN UNSAFE.POINTER TO A RECORD
+// INSTEAD OF THAT RECORDS VALUE.
+//
+// returns: leaf node, ptr->record
+func (t *btree) find(key key_t) (*node, unsafe.Pointer) {
+	leaf := findLeaf(t.root, key)
+	if leaf == nil {
+		return nil, nil
 	}
 	var i int
-	for i = 0; i < n.numk; i++ {
-		if compare(n.keys[i], key) == 0 {
+	for i = 0; i < leaf.numk; i++ {
+		if compare(leaf.keys[i], key) == 0 {
 			break
 		}
 	}
-	if i == n.numk {
-		return nil
+	if i == leaf.numk {
+		return nil, nil
 	}
-	return n.ptrs[i]
+	return leaf, leaf.ptrs[i]
 }
 
 /*
  *	Get node internals
  */
 
+// finds and returns leaf node
 func findLeaf(root *node, key key_t) *node {
 	var c *node = root
 	if c == nil {
@@ -400,6 +471,7 @@ func search(n *node, key key_t) int {
 	return lo
 }
 
+/*
 // breadth-first-search algorithm, kind of
 func (t *btree) BFS() {
 	fmt.Println("BFS -- START")
@@ -432,6 +504,7 @@ func (t *btree) BFS() {
 	fmt.Printf("]\n")
 	fmt.Println("BFS -- DONE")
 }
+*/
 
 // finds the first leaf in the btree (lexicographically)
 func findFirstLeaf(root *node) *node {
@@ -447,11 +520,16 @@ func findFirstLeaf(root *node) *node {
 
 // Del deletes a record by key
 func (t *btree) Del(key key_t) {
-	ptrt := t.find(key)
-	leaf := findLeaf(t.root, key)
-	if ptrt != nil && leaf != nil {
-		// remove from btree, and rebalance
-		t.root = deleteEntry(t.root, leaf, key, ptrt)
+	// t.find returns *node (leaf node), and an unsafe.Pointer addressed
+	// to a *record, otherwise it will simply return nil for both values
+	leaf, uptr := t.find(key)
+	if leaf != nil || uptr != nil {
+		// double check key, and val
+		if r := (*record)(unsafe.Pointer(uptr)); r != nil && compare(r.key, key) == 0 {
+			// remove from btree, rebalance, etc.
+			t.decr()
+			t.root = deleteEntry(t.root, leaf, key, uptr)
+		}
 	}
 }
 
@@ -732,8 +810,12 @@ func (t *btree) All() [][]byte {
 
 // Count returns the number of records in the btree
 func (t *btree) Count() int {
+
+	return t.count
+
+	// ORIG: BELOW
 	if t.root == nil {
-		return -1
+		return 0 // NOTE: used to return -1
 	}
 	c := t.root
 	for !c.leaf {
@@ -748,7 +830,8 @@ func (t *btree) Count() int {
 			break
 		}
 	}
-	return size
+	t.count = size
+	return t.count
 }
 
 // Close destroys all the nodes of the btree
