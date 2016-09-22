@@ -11,7 +11,7 @@ const M = 16
 var (
 	nodePool       = sync.Pool{New: func() interface{} { return &node{} }}
 	recdPool       = sync.Pool{New: func() interface{} { return &record{} }}
-	zero     key_t = nil
+	zero     key_t = [24]byte{}
 )
 
 func EncUint32(b []byte) uint32 {
@@ -28,10 +28,21 @@ func DecUint32(v uint32) (b []byte) {
 	return
 }
 
-type key_t []byte
+type key_t [24]byte
+
+func Key(b []byte) key_t {
+	var k key_t
+	if len(b) > 24 {
+		copy(k[:13], b[:13])
+		copy(k[13:], b[(len(b)-13):])
+		return k
+	}
+	copy(k[:], b[:])
+	return k
+}
 
 func compare(a, b key_t) int {
-	return bytes.Compare(a, b)
+	return bytes.Compare(a[:], b[:])
 }
 
 // node represents a btree's node
@@ -379,11 +390,11 @@ func insertIntoLeafAfterSplitting(root, leaf *node, key key_t, ptr *record) *nod
 
 	//
 	for i = leaf.numk; i < M-1; i++ {
-		leaf.keys[i] = nil
+		leaf.keys[i] = zero
 		leaf.ptrs[i] = nil
 	}
 	for i = newLeaf.numk; i < M-1; i++ {
-		newLeaf.keys[i] = nil
+		newLeaf.keys[i] = zero
 		newLeaf.ptrs[i] = nil
 	}
 
@@ -397,7 +408,7 @@ func insertIntoLeafAfterSplitting(root, leaf *node, key key_t, ptr *record) *nod
 func (t *btree) Get(key key_t) []byte {
 	n := findLeaf(t.root, key)
 	if n == nil {
-		return zero
+		return nil
 	}
 	var i int
 	for i = 0; i < n.numk; i++ {
@@ -406,7 +417,7 @@ func (t *btree) Get(key key_t) []byte {
 		}
 	}
 	if i == n.numk {
-		return zero
+		return nil
 	}
 	return (*record)(unsafe.Pointer(n.ptrs[i])).val
 }

@@ -20,7 +20,7 @@ var data = func(s string, args ...interface{}) []byte {
 // test has
 func Test_BTree_Has(t *testing.T) {
 	tree = new(btree)
-	if ok := tree.Has([]byte{0x42}); ok {
+	if ok := tree.Has([24]byte{0x42}); ok {
 		t.Fatalf("expexted nil, got: %v\n", ok)
 	}
 	if count := tree.Count(); count != 0 {
@@ -31,25 +31,25 @@ func Test_BTree_Has(t *testing.T) {
 // test add
 func Test_BTree_Add(t *testing.T) {
 	tree := new(btree)
-	tree.Add([]byte{0x42}, []byte{0x99})
+	tree.Add(key_t{0x42}, []byte{0x99})
 	if count := tree.Count(); count != 1 {
 		t.Fatalf("expected 1, got: %d\n", count) // should be 1
 	}
-	if dat := tree.Get([]byte{0x42}); !bytes.Equal(dat, []byte{0x99}) {
+	if dat := tree.Get(key_t{0x42}); !bytes.Equal(dat, []byte{0x99}) {
 		t.Fatalf("expected '0x99', got: %s\n", dat)
 	}
-	tree.Add([]byte{0x42}, []byte{0x77}) // overwrite record, should no work
+	tree.Add(key_t{0x42}, []byte{0x77}) // overwrite record, should no work
 	if count := tree.Count(); count != 1 {
 		t.Fatalf("expected 1, got: %d\n", count) // should be 1
 	}
-	if dat := tree.Get([]byte{0x42}); !bytes.Equal(dat, []byte{0x99}) {
+	if dat := tree.Get(key_t{0x42}); !bytes.Equal(dat, []byte{0x99}) {
 		t.Fatalf("expected '0x99', got: %s\n", dat)
 	}
-	tree.Add([]byte{0x22}, []byte{0x44})
+	tree.Add(key_t{0x22}, []byte{0x44})
 	if count := tree.Count(); count != 2 {
 		t.Fatalf("expected 2, got: %d\n", count) // should be 2
 	}
-	if dat := tree.Get([]byte{0x22}); !bytes.Equal(dat, []byte{0x44}) {
+	if dat := tree.Get(key_t{0x22}); !bytes.Equal(dat, []byte{0x44}) {
 		t.Fatalf("expected '0x44', got: %s\n", dat)
 	}
 }
@@ -60,14 +60,14 @@ func Test_BTree_Get(t *testing.T) {
 	if count := tree.Count(); count != 0 {
 		t.Fatalf("expected 0, got: %d\n", count)
 	}
-	if dat := tree.Get([]byte{0x11}); dat != nil {
+	if dat := tree.Get(key_t{0x11}); dat != nil {
 		t.Fatalf("expexted nil, got: %s\n", dat)
 	}
-	tree.Set([]byte{0x11}, []byte{0x01})
+	tree.Set(key_t{0x11}, []byte{0x01})
 	if count := tree.Count(); count != 1 {
 		t.Fatalf("expected 1, got: %d\n", count)
 	}
-	if dat := tree.Get([]byte{0x11}); !bytes.Equal(dat, []byte{0x01}) {
+	if dat := tree.Get(key_t{0x11}); !bytes.Equal(dat, []byte{0x01}) {
 		t.Fatalf("expected '0x01', got: %s\n", dat)
 	}
 }
@@ -75,25 +75,25 @@ func Test_BTree_Get(t *testing.T) {
 // test set
 func Test_BTree_Set(t *testing.T) {
 	tree := new(btree)
-	tree.Set([]byte{0x42}, []byte{0x99})
+	tree.Set(key_t{0x42}, []byte{0x99})
 	if count := tree.Count(); count != 1 {
 		t.Fatalf("expected 1, got: %d\n", count) // should be 1
 	}
-	if dat := tree.Get([]byte{0x42}); !bytes.Equal(dat, []byte{0x99}) {
+	if dat := tree.Get(key_t{0x42}); !bytes.Equal(dat, []byte{0x99}) {
 		t.Fatalf("expected '0x99', got: %s\n", dat)
 	}
-	tree.Set([]byte{0x42}, []byte{0x77}) // overwrite record
+	tree.Set(key_t{0x42}, []byte{0x77}) // overwrite record
 	if count := tree.Count(); count != 1 {
 		t.Fatalf("expected 1, got: %d\n", count) // should be 1
 	}
-	if dat := tree.Get([]byte{0x42}); !bytes.Equal(dat, []byte{0x77}) {
+	if dat := tree.Get(key_t{0x42}); !bytes.Equal(dat, []byte{0x77}) {
 		t.Fatalf("expected '0x77', got: %s\n", dat)
 	}
-	tree.Set([]byte{0x22}, []byte{0x44})
+	tree.Set(key_t{0x22}, []byte{0x44})
 	if count := tree.Count(); count != 2 {
 		t.Fatalf("expected 2, got: %d\n", count) // should be 2
 	}
-	if dat := tree.Get([]byte{0x22}); !bytes.Equal(dat, []byte{0x44}) {
+	if dat := tree.Get(key_t{0x22}); !bytes.Equal(dat, []byte{0x44}) {
 		t.Fatalf("expected '0x44', got: %s\n", dat)
 	}
 }
@@ -101,39 +101,40 @@ func Test_BTree_Set(t *testing.T) {
 // test del
 func Test_BTree_Del(t *testing.T) {
 	tree := new(btree)
-	tree.Del([]byte{0x11})                 // delete non-existant key
+	tree.Del(key_t{0x11})                  // delete non-existant key
 	if count := tree.Count(); count != 0 { // check to make sure count doesn't decrement unnecessarily
 		t.Fatalf("expected size=0, got: %d\n", count) // should be 0
 	}
-	tree.Set([]byte{0x11}, []byte{0x11})   // set key
-	tree.Del([]byte{0x01})                 // attempty to delete key that doesn't exist
+	tree.Set(key_t{0x11}, []byte{0x11})    // set key
+	tree.Del(key_t{0x01})                  // attempty to delete key that doesn't exist
 	if count := tree.Count(); count != 1 { // check to make sure count doesn't decrement unnecessarily
 		t.Fatalf("expected size=1, got: %d\n", count) // should be 1
 	}
-	tree.Set([]byte{0x22}, []byte{0x22})
+	tree.Set(key_t{0x22}, []byte{0x22})
 	if count := tree.Count(); count != 2 { // check to make sure count is correct
 		t.Fatalf("expected size=2, got: %d\n", count) // should be 2
 	}
-	tree.Set([]byte{0x33}, []byte{0x33})   // count=3
-	tree.Set([]byte{0x44}, []byte{0x44})   // count=4
+	tree.Set(key_t{0x33}, []byte{0x33})    // count=3
+	tree.Set(key_t{0x44}, []byte{0x44})    // count=4
 	if count := tree.Count(); count != 4 { // check to make sure count is correct
 		t.Fatalf("expected size=4, got: %d\n", count) // should be 4
 	}
-	tree.Del([]byte{0x33})                 // del 0x33, now count=3
+	tree.Del(key_t{0x33})                  // del 0x33, now count=3
 	if count := tree.Count(); count != 3 { // check to make sure count doesn't decrement unnecessarily
 		t.Fatalf("expected size=3, got: %d\n", count) // should be 3
 	}
-	tree.Set([]byte{0x55}, []byte{0x55})   // put 0x55, count=4
-	tree.Del([]byte{0x11})                 // del 0x11, count=3
+	tree.Set(key_t{0x55}, []byte{0x55})    // put 0x55, count=4
+	tree.Del(key_t{0x11})                  // del 0x11, count=3
 	if count := tree.Count(); count != 3 { // check to make sure count is correct
 		t.Fatalf("expected size=3, got: %d\n", count)
 	}
-	tree.Del([]byte{0x44})                 // del 0x44, count=2
-	tree.Del([]byte{0x22})                 // del 0x22, count=1
+	tree.Del(key_t{0x44})                  // del 0x44, count=2
+	tree.Del(key_t{0x22})                  // del 0x22, count=1
 	if count := tree.Count(); count != 1 { // check to make sure count is correct
 		t.Fatalf("expected size=1, got: %d\n", count)
 	}
-	tree.Del([]byte{0x55})                 // del 0x55, count=0
+	tree.Del(key_t{0x55}) // del 0x55, count=0
+
 	if count := tree.Count(); count != 0 { // check to make sure count is correct
 		t.Fatalf("expected size=0, got: %d\n", count)
 	}
@@ -152,9 +153,9 @@ func Benchmark_BTree_SetSeq_1e5(b *testing.B) {
 	benchmark_BTree_SetSeq(b, 1e5)
 }
 
-func Benchmark_BTree_SetSeq_1e6(b *testing.B) {
-	benchmark_BTree_SetSeq(b, 1e6)
-}
+// func Benchmark_BTree_SetSeq_1e6(b *testing.B) {
+// 	benchmark_BTree_SetSeq(b, 1e6)
+// }
 
 func benchmark_BTree_SetSeq(b *testing.B, n int) {
 	b.ResetTimer()
@@ -164,7 +165,7 @@ func benchmark_BTree_SetSeq(b *testing.B, n int) {
 		debug.FreeOSMemory()
 		b.StartTimer()
 		for j := 0; j < n; j++ {
-			tree.Set([]byte(strconv.Itoa(j)), []byte{0xde, 0xad, 0xbe, 0xef})
+			tree.Set(Key([]byte(strconv.Itoa(j))), []byte{0xde, 0xad, 0xbe, 0xef})
 		}
 		b.StopTimer()
 		if count := tree.Count(); count != n {
@@ -188,9 +189,9 @@ func Benchmark_BTree_SetRnd_1e5(b *testing.B) {
 	benchmark_BTree_SetRnd(b, 1e5)
 }
 
-func Benchmark_BTree_SetRnd_1e6(b *testing.B) {
-	benchmark_BTree_SetRnd(b, 1e6)
-}
+// func Benchmark_BTree_SetRnd_1e6(b *testing.B) {
+// 	benchmark_BTree_SetRnd(b, 1e6)
+// }
 
 func benchmark_BTree_SetRnd(b *testing.B, n int) {
 	a := rand.New(rand.NewSource(98647)).Perm(n)
@@ -202,7 +203,7 @@ func benchmark_BTree_SetRnd(b *testing.B, n int) {
 		b.StartTimer()
 		for _, v := range a {
 			kv := strconv.Itoa(v)
-			tree.Set([]byte(kv), []byte(kv))
+			tree.Set(Key([]byte(kv)), []byte{0xde, 0xad, 0xbe, 0xef})
 		}
 		b.StopTimer()
 		if count := tree.Count(); count != n {
@@ -226,21 +227,21 @@ func Benchmark_BTree_GetSeq_1e5(b *testing.B) {
 	benchmark_BTree_GetSeq(b, 1e5)
 }
 
-func Benchmark_BTree_GetSeq_1e6(b *testing.B) {
-	benchmark_BTree_GetSeq(b, 1e6)
-}
+// func Benchmark_BTree_GetSeq_1e6(b *testing.B) {
+// 	benchmark_BTree_GetSeq(b, 1e6)
+// }
 
 func benchmark_BTree_GetSeq(b *testing.B, n int) {
 	tree := new(btree)
 	for i := 0; i < n; i++ {
-		tree.Set([]byte(strconv.Itoa(i)), []byte{0xde, 0xad, 0xbe, 0xef})
+		tree.Set(Key([]byte(strconv.Itoa(i))), []byte{0xde, 0xad, 0xbe, 0xef})
 	}
 	debug.FreeOSMemory()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < n; j++ {
 			kv := strconv.Itoa(j)
-			if dat := tree.Get([]byte(kv)); !bytes.Equal(dat, []byte{0xde, 0xad, 0xbe, 0xef}) {
+			if dat := tree.Get(Key([]byte(kv))); !bytes.Equal(dat, []byte{0xde, 0xad, 0xbe, 0xef}) {
 				b.Fatalf("expected %+#v, but got: %+#v\n", kv, dat)
 			}
 		}
@@ -262,22 +263,22 @@ func Benchmark_BTree_GetRnd_1e5(b *testing.B) {
 	benchmark_BTree_GetRnd(b, 1e5)
 }
 
-func Benchmark_BTree_GetRnd_1e6(b *testing.B) {
-	benchmark_BTree_GetRnd(b, 1e6)
-}
+// func Benchmark_BTree_GetRnd_1e6(b *testing.B) {
+// 	benchmark_BTree_GetRnd(b, 1e6)
+// }
 
 func benchmark_BTree_GetRnd(b *testing.B, n int) {
 	tree := new(btree)
 	a := rand.New(rand.NewSource(59684)).Perm(n)
 	for _, v := range a { // fill tree with random data
-		tree.Set([]byte(strconv.Itoa(v)), []byte{0xde, 0xad, 0xbe, 0xef})
+		tree.Set(Key([]byte(strconv.Itoa(v))), []byte{0xde, 0xad, 0xbe, 0xef})
 	}
 	debug.FreeOSMemory() // free memory, run gc
 	b.ResetTimer()       // and reset timer
 	for i := 0; i < b.N; i++ {
 		for _, v := range a {
 			kv := strconv.Itoa(v)
-			if dat := tree.Get([]byte(kv)); !bytes.Equal(dat, []byte{0xde, 0xad, 0xbe, 0xef}) {
+			if dat := tree.Get(Key([]byte(kv))); !bytes.Equal(dat, []byte{0xde, 0xad, 0xbe, 0xef}) {
 				b.Fatalf("expected %+#v, but got: %+#v\n", kv, dat)
 			}
 		}
@@ -299,23 +300,26 @@ func Benchmark_BTree_DelSeq_1e5(b *testing.B) {
 	benchmark_BTree_DelSeq(b, 1e5)
 }
 
-func Benchmark_BTree_DelSeq_1e6(b *testing.B) {
-	benchmark_BTree_DelSeq(b, 1e6)
-}
+// func Benchmark_BTree_DelSeq_1e6(b *testing.B) {
+// 	benchmark_BTree_DelSeq(b, 1e6)
+// }
 
 func benchmark_BTree_DelSeq(b *testing.B, n int) {
 	tree := new(btree)
 	for i := 0; i < n; i++ {
-		tree.Set([]byte(strconv.Itoa(i)), []byte{0xde, 0xad, 0xbe, 0xef})
+		tree.Set(Key([]byte(strconv.Itoa(i))), []byte{0xde, 0xad, 0xbe, 0xef})
 	}
 	debug.FreeOSMemory()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < n; j++ {
-			kv := strconv.Itoa(j)
-			if !tree.Del([]byte(kv)) {
-				b.Fatalf("expected true, but got: false\n")
+			kv := Key([]byte(strconv.Itoa(j)))
+			tree.Del(kv)
+			b.StopTimer()
+			if tree.Has(kv) {
+				b.Fatalf("key %s exists", kv)
 			}
+			b.StartTimer()
 		}
 	}
 	b.StopTimer()
@@ -335,24 +339,27 @@ func Benchmark_BTree_DelRnd_1e5(b *testing.B) {
 	benchmark_BTree_DelRnd(b, 1e5)
 }
 
-func Benchmark_BTree_DelRnd_1e6(b *testing.B) {
-	benchmark_BTree_DelRnd(b, 1e6)
-}
+// func Benchmark_BTree_DelRnd_1e6(b *testing.B) {
+// 	benchmark_BTree_DelRnd(b, 1e6)
+// }
 
 func benchmark_BTree_DelRnd(b *testing.B, n int) {
 	tree := new(btree)
 	a := rand.New(rand.NewSource(65489)).Perm(n)
 	for _, v := range a { // fill tree with random data
-		tree.Set([]byte(strconv.Itoa(v)), []byte{0xde, 0xad, 0xbe, 0xef})
+		tree.Set(Key([]byte(strconv.Itoa(v))), []byte{0xde, 0xad, 0xbe, 0xef})
 	}
 	debug.FreeOSMemory() // free memory, run gc
 	b.ResetTimer()       // and reset timer
 	for i := 0; i < b.N; i++ {
 		for _, v := range a {
-			kv := strconv.Itoa(v)
-			if !tree.Del([]byte(kv)) {
-				b.Fatalf("expected true, but got: false\n")
+			kv := Key([]byte(strconv.Itoa(v)))
+			tree.Del(kv)
+			b.StopTimer()
+			if tree.Has(kv) {
+				b.Fatalf("key %s exists", kv)
 			}
+			b.StartTimer()
 		}
 	}
 	b.StopTimer() // stop the timer and close tree.
