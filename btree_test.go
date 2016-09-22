@@ -140,23 +140,23 @@ func Test_BTree_Del(t *testing.T) {
 }
 
 // btree set sequential
-func Benchmark_BTree_SetSeq_A_1e3(b *testing.B) {
-	benchmark_BTree_SetSeq_A(b, 1e3)
+func Benchmark_BTree_SetSeq_1e3(b *testing.B) {
+	benchmark_BTree_SetSeq(b, 1e3)
 }
 
-func Benchmark_BTree_SetSeq_A_1e4(b *testing.B) {
-	benchmark_BTree_SetSeq_A(b, 1e4)
+func Benchmark_BTree_SetSeq_1e4(b *testing.B) {
+	benchmark_BTree_SetSeq(b, 1e4)
 }
 
-func Benchmark_BTree_SetSeq_A_1e5(b *testing.B) {
-	benchmark_BTree_SetSeq_A(b, 1e5)
+func Benchmark_BTree_SetSeq_1e5(b *testing.B) {
+	benchmark_BTree_SetSeq(b, 1e5)
 }
 
-func Benchmark_BTree_SetSeq_A_1e6(b *testing.B) {
-	benchmark_BTree_SetSeq_A(b, 1e6)
+func Benchmark_BTree_SetSeq_1e6(b *testing.B) {
+	benchmark_BTree_SetSeq(b, 1e6)
 }
 
-func benchmark_BTree_SetSeq_A(b *testing.B, n int) {
+func benchmark_BTree_SetSeq(b *testing.B, n int) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
@@ -164,42 +164,7 @@ func benchmark_BTree_SetSeq_A(b *testing.B, n int) {
 		debug.FreeOSMemory()
 		b.StartTimer()
 		for j := 0; j < n; j++ {
-			tree.Set([]byte(strconv.Itoa(j)) /*[]byte{0xde, 0xad, 0xbe, 0xef}*/, []byte{0x01})
-		}
-		b.StopTimer()
-		if count := tree.Count(); count != n {
-			b.Fatalf("expected %d entries, got: %d entries instead\n", n, count)
-		}
-		tree.Close()
-	}
-	b.StopTimer()
-}
-
-func Benchmark_BTree_SetSeq_B_1e3(b *testing.B) {
-	benchmark_BTree_SetSeq_B(b, 1e3)
-}
-
-func Benchmark_BTree_SetSeq_B_1e4(b *testing.B) {
-	benchmark_BTree_SetSeq_B(b, 1e4)
-}
-
-func Benchmark_BTree_SetSeq_B_1e5(b *testing.B) {
-	benchmark_BTree_SetSeq_B(b, 1e5)
-}
-
-func Benchmark_BTree_SetSeq_B_1e6(b *testing.B) {
-	benchmark_BTree_SetSeq_B(b, 1e6)
-}
-func benchmark_BTree_SetSeq_B(b *testing.B, n int) {
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		b.StopTimer()
-		tree := new(btree)
-		debug.FreeOSMemory()
-		b.StartTimer()
-		for j := 0; j < n; j++ {
-			k, v := data("key-%.6d", j), data("val-%.6d", j)
-			tree.Set([]byte(k), []byte(v))
+			tree.Set([]byte(strconv.Itoa(j)), []byte{0xde, 0xad, 0xbe, 0xef})
 		}
 		b.StopTimer()
 		if count := tree.Count(); count != n {
@@ -228,7 +193,7 @@ func Benchmark_BTree_SetRnd_1e6(b *testing.B) {
 }
 
 func benchmark_BTree_SetRnd(b *testing.B, n int) {
-	a := rand.New(rand.NewSource(37189)).Perm(n)
+	a := rand.New(rand.NewSource(98647)).Perm(n)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
@@ -268,16 +233,15 @@ func Benchmark_BTree_GetSeq_1e6(b *testing.B) {
 func benchmark_BTree_GetSeq(b *testing.B, n int) {
 	tree := new(btree)
 	for i := 0; i < n; i++ {
-		kv := strconv.Itoa(i)
-		tree.Set([]byte(kv), []byte(kv))
+		tree.Set([]byte(strconv.Itoa(i)), []byte{0xde, 0xad, 0xbe, 0xef})
 	}
 	debug.FreeOSMemory()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < n; j++ {
 			kv := strconv.Itoa(j)
-			if dat := tree.Get([]byte(kv)); !bytes.Equal(dat, []byte(kv)) {
-				b.Fatalf("expected [(%T) %s], but got: [(%T) %s]\n", kv, kv, dat, dat)
+			if dat := tree.Get([]byte(kv)); !bytes.Equal(dat, []byte{0xde, 0xad, 0xbe, 0xef}) {
+				b.Fatalf("expected %+#v, but got: %+#v\n", kv, dat)
 			}
 		}
 	}
@@ -304,18 +268,90 @@ func Benchmark_BTree_GetRnd_1e6(b *testing.B) {
 
 func benchmark_BTree_GetRnd(b *testing.B, n int) {
 	tree := new(btree)
-	a := rand.New(rand.NewSource(37189)).Perm(n)
+	a := rand.New(rand.NewSource(59684)).Perm(n)
 	for _, v := range a { // fill tree with random data
-		kv := strconv.Itoa(v)
-		tree.Set([]byte(kv), []byte(kv))
+		tree.Set([]byte(strconv.Itoa(v)), []byte{0xde, 0xad, 0xbe, 0xef})
 	}
 	debug.FreeOSMemory() // free memory, run gc
 	b.ResetTimer()       // and reset timer
 	for i := 0; i < b.N; i++ {
 		for _, v := range a {
 			kv := strconv.Itoa(v)
-			if dat := tree.Get([]byte(kv)); !bytes.Equal(dat, []byte(kv)) {
+			if dat := tree.Get([]byte(kv)); !bytes.Equal(dat, []byte{0xde, 0xad, 0xbe, 0xef}) {
 				b.Fatalf("expected %+#v, but got: %+#v\n", kv, dat)
+			}
+		}
+	}
+	b.StopTimer() // stop the timer and close tree.
+	tree.Close()
+}
+
+// btree del sequential
+func Benchmark_BTree_DelSeq_1e3(b *testing.B) {
+	benchmark_BTree_DelSeq(b, 1e3)
+}
+
+func Benchmark_BTree_DelSeq_1e4(b *testing.B) {
+	benchmark_BTree_DelSeq(b, 1e4)
+}
+
+func Benchmark_BTree_DelSeq_1e5(b *testing.B) {
+	benchmark_BTree_DelSeq(b, 1e5)
+}
+
+func Benchmark_BTree_DelSeq_1e6(b *testing.B) {
+	benchmark_BTree_DelSeq(b, 1e6)
+}
+
+func benchmark_BTree_DelSeq(b *testing.B, n int) {
+	tree := new(btree)
+	for i := 0; i < n; i++ {
+		tree.Set([]byte(strconv.Itoa(i)), []byte{0xde, 0xad, 0xbe, 0xef})
+	}
+	debug.FreeOSMemory()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for j := 0; j < n; j++ {
+			kv := strconv.Itoa(j)
+			if !tree.Del([]byte(kv)) {
+				b.Fatalf("expected true, but got: false\n")
+			}
+		}
+	}
+	b.StopTimer()
+	tree.Close()
+}
+
+// btree get random
+func Benchmark_BTree_DelRnd_1e3(b *testing.B) {
+	benchmark_BTree_DelRnd(b, 1e3)
+}
+
+func Benchmark_BTree_DelRnd_1e4(b *testing.B) {
+	benchmark_BTree_DelRnd(b, 1e4)
+}
+
+func Benchmark_BTree_DelRnd_1e5(b *testing.B) {
+	benchmark_BTree_DelRnd(b, 1e5)
+}
+
+func Benchmark_BTree_DelRnd_1e6(b *testing.B) {
+	benchmark_BTree_DelRnd(b, 1e6)
+}
+
+func benchmark_BTree_DelRnd(b *testing.B, n int) {
+	tree := new(btree)
+	a := rand.New(rand.NewSource(65489)).Perm(n)
+	for _, v := range a { // fill tree with random data
+		tree.Set([]byte(strconv.Itoa(v)), []byte{0xde, 0xad, 0xbe, 0xef})
+	}
+	debug.FreeOSMemory() // free memory, run gc
+	b.ResetTimer()       // and reset timer
+	for i := 0; i < b.N; i++ {
+		for _, v := range a {
+			kv := strconv.Itoa(v)
+			if !tree.Del([]byte(kv)) {
+				b.Fatalf("expected true, but got: false\n")
 			}
 		}
 	}

@@ -814,24 +814,24 @@ func (t *btree) Count() int {
 	return t.count
 
 	// ORIG: BELOW
-	if t.root == nil {
-		return 0 // NOTE: used to return -1
-	}
-	c := t.root
-	for !c.leaf {
-		c = (*node)(unsafe.Pointer(c.ptrs[0]))
-	}
-	var size int
-	for {
-		size += c.numk
-		if c.ptrs[M-1] != nil {
-			c = (*node)(unsafe.Pointer(c.ptrs[M-1]))
-		} else {
-			break
-		}
-	}
-	t.count = size
-	return t.count
+	// if t.root == nil {
+	// 	return 0 // NOTE: used to return -1
+	// }
+	// c := t.root
+	// for !c.leaf {
+	// 	c = (*node)(unsafe.Pointer(c.ptrs[0]))
+	// }
+	// var size int
+	// for {
+	// 	size += c.numk
+	// 	if c.ptrs[M-1] != nil {
+	// 		c = (*node)(unsafe.Pointer(c.ptrs[M-1]))
+	// 	} else {
+	// 		break
+	// 	}
+	// }
+	// t.count = size
+	// return t.count
 }
 
 // Close destroys all the nodes of the btree
