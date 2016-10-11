@@ -2,70 +2,63 @@ package godb
 
 import (
 	"bytes"
-	"fmt"
 	"math/rand"
 	"runtime/debug"
-	"strconv"
 	"testing"
 
 	"github.com/collinglass/bptree"
 )
 
 // count should print count... duh
-var tree *bptree.Tree
-
-// data helper
-var data = func(s string, args ...interface{}) []byte {
-	return []byte(fmt.Sprintf(s, args...))
-}
+var tree2 *bptree.Tree
 
 // test has
 func Test_BPTree_Has(t *testing.T) {
-	tree = bptree.NewTree()
-	if _, err := tree.Find(42, false); err != nil {
-		t.Fatalf("expexted nil, got: %v\n", err)
+	tree2 = bptree.NewTree()
+	if _, err := tree2.Find(42, false); err == nil {
+		t.Fatalf("expexted err, got nil\n")
 	}
-	if tree.Root.NumKeys != 0 {
-		t.Fatalf("expected 0, got: %v\n", tree.Root.NumKeys)
-	}
+	// if tree2.Root.NumKeys != 0 {
+	// 	t.Fatalf("expected 0, got: %v\n", tree2.Root.NumKeys)
+	// }
 }
 
 // test add
 func Test_BPTree_Add(t *testing.T) {
-	tree = bptree.NewTree()
-	if err := tree.Insert(42, []byte{0x99}); err != nil {
+	tree2 = bptree.NewTree()
+	if err := tree2.Insert(42, []byte{0x99}); err != nil {
 		t.Fatalf("got error while inserting: %v\n", err)
 	}
-	if tree.Root.NumKeys != 1 {
-		t.Fatalf("expected 1, got: %d\n", tree.Root.NumKeys) // should be 1
-	}
-	if r, err := tree.Find(42, false); err != nil {
+	// if tree2.Root.NumKeys != 1 {
+	// 	t.Fatalf("expected 1, got: %d\n", tree2.Root.NumKeys) // should be 1
+	// }
+	if r, err := tree2.Find(42, false); err != nil {
 		t.Fatalf("got error while finding: %v\n", err)
-		if !bytes.Equal(r, []byte{0x99}) {
+		if !bytes.Equal(r.Value, []byte{0x99}) {
 			t.Fatalf("expected '0x99', got: %s\n", r)
 		}
 	}
-	if err := tree.Insert(42, []byte{0x77}); err != nil { // overwrite record, should not work
-		t.Fatalf("got error while inserting: %v\n", err)
+	if err := tree2.Insert(42, []byte{0x77}); err == nil { // overwrite record, should not work
+		t.Fatalf("got nil while overwriting\n")
 	}
-	if tree.Root.NumKeys != 1 {
-		t.Fatalf("expected 1, got: %d\n", tree.Root.NumKeys) // should be 1
-	}
-	if r, err := tree.Find(42, false); err != nil {
+	// if tree2.Root.NumKeys != 1 {
+	// 	t.Fatalf("expected 1, got: %d\n", tree2.Root.NumKeys) // should be 1
+	// }
+	if r, err := tree2.Find(42, false); err != nil {
 		t.Fatalf("got error while finding: %v\n", err)
-		if !bytes.Equal(r, []byte{0x99}) {
+		if !bytes.Equal(r.Value, []byte{0x99}) {
 			t.Fatalf("expected '0x99', got: %s\n", r)
 		}
 	}
-	if err := tree.Insert(22, []byte{0x44}); err != nil {
+	if err := tree2.Insert(22, []byte{0x44}); err != nil {
 		t.Fatalf("got error while inserting: %v\n", err)
 	}
-	if tree.Root.NumKeys != 2 {
-		t.Fatalf("expected 2, got: %d\n", tree.Root.NumKeys) // should be 2
-	}
-	if r, err := tree.Find(22, false); err != nil {
+	// if tree2.Root.NumKeys != 2 {
+	// 	t.Fatalf("expected 2, got: %d\n", tree2.Root.NumKeys) // should be 2
+	// }
+	if r, err := tree2.Find(22, false); err != nil {
 		t.Fatalf("got error while finding: %v\n", err)
-		if !bytes.Equal(r, []byte{0x44}) {
+		if !bytes.Equal(r.Value, []byte{0x44}) {
 			t.Fatalf("expected '0x44', got: %s\n", r)
 		}
 	}
@@ -73,63 +66,63 @@ func Test_BPTree_Add(t *testing.T) {
 
 // test get
 func Test_BPTree_Get(t *testing.T) {
-	tree = bptree.NewTree()
-	if tree.Root.NumKeys != 0 {
-		t.Fatalf("expected 0, got: %d\n", tree.Root.NumKeys)
+	tree2 = bptree.NewTree()
+	// if tree2.Root.NumKeys != 0 {
+	// 	t.Fatalf("expected 0, got: %d\n", tree2.Root.NumKeys)
+	// }
+	if r, err := tree2.Find(11, false); err == nil {
+		t.Fatalf("expected nil, got: %s\n", r.Value)
 	}
-	if r, err := tree.Find(11, false); r != nil {
-		t.Fatalf("expexted nil, got: %s\n", r)
-	}
-	if err := tree.Insert(11, []byte{0x01}); err != nil {
+	if err := tree2.Insert(11, []byte{0x01}); err != nil {
 		t.Fatalf("got error while inserting: %v\n", err)
 	}
-	if tree.Root.NumKeys != 1 {
-		t.Fatalf("expected 1, got: %d\n", tree.Root.NumKeys)
-	}
-	if r, err := tree.Find(11, false); err != nil {
+	// if tree2.Root.NumKeys != 1 {
+	// 	t.Fatalf("expected 1, got: %d\n", tree2.Root.NumKeys)
+	// }
+	if r, err := tree2.Find(11, false); err != nil {
 		t.Fatalf("got error while inserting: %v\n", err)
-		if !bytes.Equal(r, []byte{0x01}) {
-			t.Fatalf("expected '0x01', got: %s\n", r)
+		if !bytes.Equal(r.Value, []byte{0x01}) {
+			t.Fatalf("expected '0x01', got: %s\n", r.Value)
 		}
 	}
 }
 
 // test set
 func Test_BPTree_Set(t *testing.T) {
-	tree = bptree.NewTree()
-	if err := tree.Insert(42, []byte{0x99}); err != nil {
+	tree2 = bptree.NewTree()
+	if err := tree2.Insert(42, []byte{0x99}); err != nil {
 		t.Fatalf("got error while inserting: %v\n", err)
 	}
-	if tree.Root.NumKeys != 1 {
-		t.Fatalf("expected 1, got: %d\n", tree.Root.NumKeys) // should be 1
-	}
-	if r, err := tree.Find(42, false); err != nil {
+	// if tree2.Root.NumKeys != 1 {
+	// 	t.Fatalf("expected 1, got: %d\n", tree2.Root.NumKeys) // should be 1
+	// }
+	if r, err := tree2.Find(42, false); err != nil {
 		t.Fatalf("got error while finding: %v\n", err)
-		if !bytes.Equal(r, []byte{0x99}) {
+		if !bytes.Equal(r.Value, []byte{0x99}) {
 			t.Fatalf("expected '0x99', got: %s\n", r)
 		}
 	}
-	if err := tree.Insert(42, []byte{0x77}); err != nil { // overwrite record
-		t.Fatalf("got error while inserting: %v\n", err)
+	if err := tree2.Insert(42, []byte{0x77}); err == nil { // overwrite record
+		t.Fatalf("got nil while overwriting\n")
 	}
-	if tree.Root.NumKeys != 1 {
-		t.Fatalf("expected 1, got: %d\n", tree.Root.NumKeys) // should be 1
-	}
-	if r, err := tree.Find(42, false); err != nil {
+	// if tree2.Root.NumKeys != 1 {
+	// 	t.Fatalf("expected 1, got: %d\n", tree2.Root.NumKeys) // should be 1
+	// }
+	if r, err := tree2.Find(42, false); err != nil {
 		t.Fatalf("got error while finding: %v\n", err)
-		if !bytes.Equal(r, []byte{0x77}) {
+		if !bytes.Equal(r.Value, []byte{0x77}) {
 			t.Fatalf("expected '0x77', got: %s\n", r)
 		}
 	}
-	if err := tree.Insert(22, []byte{0x44}); err != nil {
+	if err := tree2.Insert(22, []byte{0x44}); err != nil {
 		t.Fatalf("got error while inserting: %v\n", err)
 	}
-	if tree.Root.NumKeys != 2 {
-		t.Fatalf("expected 2, got: %d\n", tree.Root.NumKeys) // should be 2
-	}
-	if r, err := tree.Find(22, false); err != nil {
+	// if tree2.Root.NumKeys != 2 {
+	// 	t.Fatalf("expected 2, got: %d\n", tree2.Root.NumKeys) // should be 2
+	// }
+	if r, err := tree2.Find(22, false); err != nil {
 		t.Fatalf("got error while finding: %v\n", err)
-		if !bytes.Equal(r, []byte{0x44}) {
+		if !bytes.Equal(r.Value, []byte{0x44}) {
 			t.Fatalf("expected '0x44', got: %s\n", r)
 		}
 	}
@@ -137,67 +130,67 @@ func Test_BPTree_Set(t *testing.T) {
 
 // test del
 func Test_BPTree_Del(t *testing.T) {
-	tree = bptree.NewTree()
-	if err := tree.Delete(11); err == nil { // delete nonexistant key
+	tree2 = bptree.NewTree()
+	if err := tree2.Delete(11); err == nil { // delete nonexistant key
 		t.Fatalf("did not get error while attempting to deleting nonexistant key\n")
 	}
-	if tree.Root.NumKeys != 0 { // check to make sure count doesn't decrement unnecessarily
-		t.Fatalf("expected size=0, got: %d\n", tree.Root.NumKeys) // should be 0
-	}
-	if err := tree.Insert(11, []byte{0x11}); err != nil {
+	// if tree2.Root.NumKeys != 0 { // check to make sure count doesn't decrement unnecessarily
+	// 	t.Fatalf("expected size=0, got: %d\n", tree2.Root.NumKeys) // should be 0
+	// }
+	if err := tree2.Insert(11, []byte{0x11}); err != nil {
 		t.Fatalf("got error while attempting to insert: %v\n", err)
 	}
-	if err := tree.Del(1); err == nil { // attempty to delete key that doesn't exist
+	if err := tree2.Delete(1); err == nil { // attempty to delete key that doesn't exist
 		t.Fatalf("did not get error while attempting to delete nonexistant key\n")
 	}
-	if tree.Root.NumKeys != 1 { // check to make sure count doesn't decrement unnecessarily
-		t.Fatalf("expected size=1, got: %d\n", tree.Root.NumKeys) // should be 1
-	}
-	if err := tree.Insert(22, []byte{0x22}); err != nil {
+	// if tree2.Root.NumKeys != 1 { // check to make sure count doesn't decrement unnecessarily
+	// 	t.Fatalf("expected size=1, got: %d\n", tree2.Root.NumKeys) // should be 1
+	// }
+	if err := tree2.Insert(22, []byte{0x22}); err != nil {
 		t.Fatalf("got error while attempting to insert: %v\n", err)
 	}
-	if tree.Root.NumKeys != 2 { // check to make sure count is correct
-		t.Fatalf("expected size=2, got: %d\n", tree.Root.NumKeys) // should be 2
-	}
-	if err := tree.Insert(33, []byte{0x33}); err != nil { // count=3
+	// if tree2.Root.NumKeys != 2 { // check to make sure count is correct
+	// 	t.Fatalf("expected size=2, got: %d\n", tree2.Root.NumKeys) // should be 2
+	// }
+	if err := tree2.Insert(33, []byte{0x33}); err != nil { // count=3
 		t.Fatalf("got error while attempting to insert: %v\n", err)
 	}
-	if err := tree.Insert(44, []byte{0x44}); err != nil { // count=4
+	if err := tree2.Insert(44, []byte{0x44}); err != nil { // count=4
 		t.Fatalf("got error while attempting to insert: %v\n", err)
 	}
-	if tree.Root.NumKeys != 4 { // check to make sure count is correct
-		t.Fatalf("expected size=4, got: %d\n", tree.Root.NumKeys) // should be 4
-	}
-	if err := tree.Delete(33); err != nil { // del 0x33, now count=3
+	// if tree2.Root.NumKeys != 4 { // check to make sure count is correct
+	// 	t.Fatalf("expected size=4, got: %d\n", tree2.Root.NumKeys) // should be 4
+	// }
+	if err := tree2.Delete(33); err != nil { // del 0x33, now count=3
 		t.Fatalf("got error while attempting to delete: %v\n", err)
 	}
-	if tree.Root.NumKeys != 3 { // check to make sure count doesn't decrement unnecessarily
-		t.Fatalf("expected size=3, got: %d\n", tree.Root.NumKeys) // should be 3
-	}
-	if err := tree.Insert(55, []byte{0x55}); err != nil { // put 0x55, count=4
+	// if tree2.Root.NumKeys != 3 { // check to make sure count doesn't decrement unnecessarily
+	// 	t.Fatalf("expected size=3, got: %d\n", tree2.Root.NumKeys) // should be 3
+	// }
+	if err := tree2.Insert(55, []byte{0x55}); err != nil { // put 0x55, count=4
 		t.Fatalf("got error while attempting to insert: %v\n", err)
 	}
-	if err := tree.Delete(11); err != nil { // del 0x11, count=3
+	if err := tree2.Delete(11); err != nil { // del 0x11, count=3
 		t.Fatalf("got error while attempting to delete: %v\n", err)
 	}
-	if tree.Root.NumKeys != 3 { // check to make sure count is correct
-		t.Fatalf("expected size=3, got: %d\n", tree.Root.NumKeys)
-	}
-	if err := tree.Delete(44); err != nil { // del 0x44, count=2
+	// if tree2.Root.NumKeys != 3 { // check to make sure count is correct
+	// 	t.Fatalf("expected size=3, got: %d\n", tree2.Root.NumKeys)
+	// }
+	if err := tree2.Delete(44); err != nil { // del 0x44, count=2
 		t.Fatalf("got error while attempting to delete: %v\n", err)
 	}
-	if err := tree.Delete(22); err != nil { // del 0x22, count=1
+	if err := tree2.Delete(22); err != nil { // del 0x22, count=1
 		t.Fatalf("got error while attempting to delete: %v\n", err)
 	}
-	if tree.Root.NumKeys != 1 { // check to make sure count is correct
-		t.Fatalf("expected size=1, got: %d\n", tree.Root.NumKeys)
-	}
-	if err := tree.Delete(55); err != nil { // del 0x55, count=0
+	// if tree2.Root.NumKeys != 1 { // check to make sure count is correct
+	// 	t.Fatalf("expected size=1, got: %d\n", tree2.Root.NumKeys)
+	// }
+	if err := tree2.Delete(55); err != nil { // del 0x55, count=0
 		t.Fatalf("got error while attempting to delete: %v\n", err)
 	}
-	if tree.Root.NumKeys != 0 { // check to make sure count is correct
-		t.Fatalf("expected size=0, got: %d\n", tree.Root.NumKeys)
-	}
+	// if tree2.Root.NumKeys != 0 { // check to make sure count is correct
+	// 	t.Fatalf("expected size=0, got: %d\n", tree2.Root.NumKeys)
+	// }
 }
 
 // btree set sequential
@@ -221,17 +214,18 @@ func benchmark_BPTree_SetSeq(b *testing.B, n int) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		tree := new(btree)
+		tree2 := bptree.NewTree()
 		debug.FreeOSMemory()
 		b.StartTimer()
 		for j := 0; j < n; j++ {
-			tree.Set(Key([]byte(strconv.Itoa(j))), []byte{0xde, 0xad, 0xbe, 0xef})
+			if err := tree2.Insert(j, []byte{0xde, 0xad, 0xbe, 0xef}); err != nil {
+				b.Fatalf("got error while inserting: %v\n", err)
+			}
 		}
 		b.StopTimer()
-		if count := tree.Count(); count != n {
-			b.Fatalf("expected %d entries, got: %d entries instead\n", n, count)
-		}
-		tree.Close()
+		// if tree2.Root.NumKeys != n {
+		// 	b.Fatalf("expected %d entries, got: %d entries instead\n", n, tree2.Root.NumKeys)
+		// }
 	}
 	b.StopTimer()
 }
@@ -258,18 +252,18 @@ func benchmark_BPTree_SetRnd(b *testing.B, n int) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		tree := new(btree)
+		tree2 := bptree.NewTree()
 		debug.FreeOSMemory()
 		b.StartTimer()
 		for _, v := range a {
-			kv := strconv.Itoa(v)
-			tree.Set(Key([]byte(kv)), []byte{0xde, 0xad, 0xbe, 0xef})
+			if err := tree2.Insert(v, []byte{0xde, 0xad, 0xbe, 0xef}); err != nil {
+				b.Fatalf("got error while inserting: %v\n", err)
+			}
 		}
 		b.StopTimer()
-		if count := tree.Count(); count != n {
-			b.Fatalf("expected %d entries, got: %d entries instead\n", n, count)
-		}
-		tree.Close()
+		// if tree2.Root.NumKeys != n {
+		// 	b.Fatalf("expected %d entries, got: %d entries instead\n", n, tree2.Root.NumKeys)
+		// }
 	}
 	b.StopTimer()
 }
@@ -292,22 +286,26 @@ func Benchmark_BPTree_GetSeq_1e5(b *testing.B) {
 // }
 
 func benchmark_BPTree_GetSeq(b *testing.B, n int) {
-	tree := new(btree)
+	tree2 := bptree.NewTree()
 	for i := 0; i < n; i++ {
-		tree.Set(Key([]byte(strconv.Itoa(i))), []byte{0xde, 0xad, 0xbe, 0xef})
+		if err := tree2.Insert(i, []byte{0xde, 0xad, 0xbe, 0xef}); err != nil {
+			b.Fatalf("got error while inserting: %v\n", err)
+		}
 	}
 	debug.FreeOSMemory()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < n; j++ {
-			kv := strconv.Itoa(j)
-			if dat := tree.Get(Key([]byte(kv))); !bytes.Equal(dat, []byte{0xde, 0xad, 0xbe, 0xef}) {
-				b.Fatalf("expected %+#v, but got: %+#v\n", kv, dat)
+			r, err := tree2.Find(j, false)
+			if err != nil {
+				b.Fatalf("got error while finding: %v\n", err)
+			}
+			if !bytes.Equal(r.Value, []byte{0xde, 0xad, 0xbe, 0xef}) {
+				b.Fatalf("expected %+#v, but got: %+#v\n", j, r.Value)
 			}
 		}
 	}
 	b.StopTimer()
-	tree.Close()
 }
 
 // btree get random
@@ -328,23 +326,25 @@ func Benchmark_BPTree_GetRnd_1e5(b *testing.B) {
 // }
 
 func benchmark_BPTree_GetRnd(b *testing.B, n int) {
-	tree := new(btree)
+	tree2 := bptree.NewTree()
 	a := rand.New(rand.NewSource(59684)).Perm(n)
 	for _, v := range a { // fill tree with random data
-		tree.Set(Key([]byte(strconv.Itoa(v))), []byte{0xde, 0xad, 0xbe, 0xef})
+		if err := tree2.Insert(v, []byte{0xde, 0xad, 0xbe, 0xef}); err != nil {
+			b.Fatalf("got error while inserting: %v\n", err)
+		}
 	}
 	debug.FreeOSMemory() // free memory, run gc
 	b.ResetTimer()       // and reset timer
 	for i := 0; i < b.N; i++ {
 		for _, v := range a {
-			kv := strconv.Itoa(v)
-			if dat := tree.Get(Key([]byte(kv))); !bytes.Equal(dat, []byte{0xde, 0xad, 0xbe, 0xef}) {
-				b.Fatalf("expected %+#v, but got: %+#v\n", kv, dat)
+			if r, err := tree2.Find(v, false); err != nil {
+				if !bytes.Equal(r.Value, []byte{0xde, 0xad, 0xbe, 0xef}) {
+					b.Fatalf("expected %+#v, but got: %+#v\n", v, r.Value)
+				}
 			}
 		}
 	}
-	b.StopTimer() // stop the timer and close tree.
-	tree.Close()
+	b.StopTimer() // stop the timer and close tree2.
 }
 
 // btree del sequential
@@ -365,25 +365,27 @@ func Benchmark_BPTree_DelSeq_1e5(b *testing.B) {
 // }
 
 func benchmark_BPTree_DelSeq(b *testing.B, n int) {
-	tree := new(btree)
+	tree2 := bptree.NewTree()
 	for i := 0; i < n; i++ {
-		tree.Set(Key([]byte(strconv.Itoa(i))), []byte{0xde, 0xad, 0xbe, 0xef})
+		if err := tree2.Insert(i, []byte{0xde, 0xad, 0xbe, 0xef}); err != nil {
+			b.Fatalf("got error while inserting: %v\n", err)
+		}
 	}
 	debug.FreeOSMemory()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < n; j++ {
-			kv := Key([]byte(strconv.Itoa(j)))
-			tree.Del(kv)
+			if err := tree2.Delete(j); err != nil {
+				b.Fatalf("got err while deleteing; %v\n", err)
+			}
 			b.StopTimer()
-			if tree.Has(kv) {
-				b.Fatalf("key %s exists", kv)
+			if _, err := tree2.Find(j, false); err == nil {
+				b.Fatalf("key %d exists", j)
 			}
 			b.StartTimer()
 		}
 	}
 	b.StopTimer()
-	tree.Close()
 }
 
 // btree get random
@@ -404,24 +406,26 @@ func Benchmark_BPTree_DelRnd_1e5(b *testing.B) {
 // }
 
 func benchmark_BPTree_DelRnd(b *testing.B, n int) {
-	tree := new(btree)
+	tree2 := bptree.NewTree()
 	a := rand.New(rand.NewSource(65489)).Perm(n)
 	for _, v := range a { // fill tree with random data
-		tree.Set(Key([]byte(strconv.Itoa(v))), []byte{0xde, 0xad, 0xbe, 0xef})
+		if err := tree2.Insert(v, []byte{0xde, 0xad, 0xbe, 0xef}); err != nil {
+			b.Fatalf("got error while inserting: %v\n", err)
+		}
 	}
 	debug.FreeOSMemory() // free memory, run gc
 	b.ResetTimer()       // and reset timer
 	for i := 0; i < b.N; i++ {
 		for _, v := range a {
-			kv := Key([]byte(strconv.Itoa(v)))
-			tree.Del(kv)
+			if err := tree2.Delete(v); err != nil {
+				b.Fatalf("got error while deleting: %v\n", err)
+			}
 			b.StopTimer()
-			if tree.Has(kv) {
-				b.Fatalf("key %s exists", kv)
+			if _, err := tree2.Find(v, false); err == nil {
+				b.Fatalf("key %d exists", v)
 			}
 			b.StartTimer()
 		}
 	}
-	b.StopTimer() // stop the timer and close tree.
-	tree.Close()
+	b.StopTimer() // stop the timer and close tree2.
 }
