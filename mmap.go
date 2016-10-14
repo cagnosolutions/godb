@@ -1,7 +1,6 @@
 package godb
 
 import (
-	"bytes"
 	"os"
 	"syscall"
 	"unsafe"
@@ -66,8 +65,7 @@ func (mm mmap) Mremap(size int) mmap {
 	return mm
 }
 
-/*
-func Open(path string) (*os.File, string, int) {
+/*func Open(path string) (*os.File, string, int) {
 	fd, err := os.OpenFile(path, syscall.O_RDWR|syscall.O_CREAT|syscall.O_APPEND, 0644)
 	if err != nil {
 		panic(err)
@@ -87,8 +85,7 @@ func sanitize(path string) string {
 		return path[:x]
 	}
 	return path
-}
-*/
+}*/
 
 func align(size int) int {
 	if size > 0 {
@@ -105,7 +102,11 @@ func resize(fd uintptr, size int) int {
 	return size
 }
 
-func (mm mmap) Len() int {
+// func
+
+//  works but not preforment keeping for reference
+
+/*func (mm mmap) Len() int {
 	return len(mm) / page
 }
 
@@ -129,4 +130,6 @@ func (mm mmap) Swap(i, j int) {
 	copy(temp, mm[pi:pi+page])
 	copy(mm[pi:pi+page], mm[pj:pj+page])
 	copy(mm[pj:pj+page], temp)
-}
+}*/
+
+/* add windows memory support */

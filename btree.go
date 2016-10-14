@@ -9,9 +9,9 @@ import (
 const M = 128
 
 var (
-	nodePool       = sync.Pool{New: func() interface{} { return &node{} }}
-	recdPool       = sync.Pool{New: func() interface{} { return &record{} }}
-	zero     key_t = [24]byte{}
+	nodePool         = sync.Pool{New: func() interface{} { return &node{} }}
+	recdPool         = sync.Pool{New: func() interface{} { return &record{} }}
+	key_t_zero key_t = [24]byte{}
 )
 
 func EncUint32(b []byte) uint32 {
@@ -30,16 +30,16 @@ func DecUint32(v uint32) (b []byte) {
 
 type key_t [24]byte
 
-func Key(b []byte) key_t {
-	var k key_t
-	if len(b) > 24 {
-		copy(k[:13], b[:13])
-		copy(k[13:], b[(len(b)-13):])
-		return k
-	}
-	copy(k[:], b[:])
-	return k
-}
+// func Key(b []byte) key_t {
+// 	var k key_t
+// 	if len(b) > 24 {
+// 		copy(k[:13], b[:13])
+// 		copy(k[13:], b[(len(b)-13):])
+// 		return k
+// 	}
+// 	copy(k[:], b[:])
+// 	return k
+// }
 
 func compare(a, b key_t) int {
 	return bytes.Compare(a[:], b[:])
@@ -306,7 +306,7 @@ func insertIntoNodeAfterSplitting(root, oldNode *node, leftIndex int, key key_t,
 
 	// free tmps...
 	for i = 0; i < M; i++ {
-		tmpKeys[i] = zero
+		tmpKeys[i] = key_t_zero
 		tmpPtrs[i] = nil
 	}
 	tmpPtrs[M] = nil
@@ -383,18 +383,18 @@ func insertIntoLeafAfterSplitting(root, leaf *node, key key_t, ptr *record) *nod
 	// freeing tmps...
 	for i = 0; i < M; i++ {
 		tmpPtrs[i] = nil
-		tmpKeys[i] = zero
+		tmpKeys[i] = key_t_zero
 	}
 	newLeaf.ptrs[M-1] = leaf.ptrs[M-1]
 	leaf.ptrs[M-1] = unsafe.Pointer(newLeaf)
 
 	//
 	for i = leaf.numk; i < M-1; i++ {
-		leaf.keys[i] = zero
+		leaf.keys[i] = key_t_zero
 		leaf.ptrs[i] = nil
 	}
 	for i = newLeaf.numk; i < M-1; i++ {
-		newLeaf.keys[i] = zero
+		newLeaf.keys[i] = key_t_zero
 		newLeaf.ptrs[i] = nil
 	}
 
