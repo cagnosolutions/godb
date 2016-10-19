@@ -7,12 +7,6 @@ import (
 	"syscall"
 )
 
-var (
-	slab = 1 << 26 // 64MB
-	page = 1 << 12 //  4KB
-	temp = make([]byte, page)
-)
-
 type engine struct {
 	file *os.File
 	//indx *btree
