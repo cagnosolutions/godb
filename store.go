@@ -59,7 +59,7 @@ type Engine struct {
 
 func Open(path string) *Engine {
 	// case new
-	_, err := os.Stat(path + `.dat`)
+	_, err := os.Stat(path + `.db`)
 	if err != nil && !os.IsExist(err) {
 		// create directory path
 		dirs, _ := filepath.Split(path)
@@ -68,7 +68,7 @@ func Open(path string) *Engine {
 			panic(err)
 		}
 		// create data file and truncate
-		fd, err := os.Create(path + `.dat`)
+		fd, err := os.Create(path + `.db`)
 		if err != nil {
 			panic(err)
 		}
@@ -81,7 +81,7 @@ func Open(path string) *Engine {
 		}
 	}
 	// open file to construct rest of data structure
-	fd, err := os.OpenFile(path+`.dat`, os.O_RDWR|os.O_APPEND, 0666)
+	fd, err := os.OpenFile(path+`.db`, os.O_RDWR|os.O_APPEND, 0666)
 	if err != nil {
 		panic(err)
 	}

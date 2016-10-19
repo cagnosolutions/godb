@@ -131,5 +131,3 @@ func (mm mmap) Swap(i, j int) {
 	copy(mm[pi:pi+page], mm[pj:pj+page])
 	copy(mm[pj:pj+page], temp)
 }*/
-
-/* add windows memory support */
