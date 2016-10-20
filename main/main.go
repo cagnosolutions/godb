@@ -7,7 +7,7 @@ import (
 	"github.com/cagnosolutions/godb"
 )
 
-const COUNT = 64
+const COUNT = 20
 
 func gen(str string, args ...interface{}) []byte {
 	return []byte(fmt.Sprintf(str, args...))
@@ -16,7 +16,6 @@ func gen(str string, args ...interface{}) []byte {
 func main() {
 
 	t := godb.NewBTree()
-
 	a := func() map[int]struct{} {
 		n := make(map[int]struct{}, 0)
 		for i := 0; i < COUNT; i++ {
@@ -32,6 +31,7 @@ func main() {
 		k, v := gen("key-%.2d", c), gen("val-%.2d", c)
 		fmt.Printf("inserting key: %s, val: %s\n", k, v)
 		t.Set(k, v)
+
 	}
 
 	fmt.Printf("\nTree contains %d entries...\n\n", t.Count())

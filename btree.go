@@ -40,6 +40,30 @@ type btree struct {
 	count int
 }
 
+func (b *btree) Count() int {
+	return b.count
+}
+
+func (b *btree) Has(k []byte) bool {
+	return b.has(k)
+}
+
+func (b *btree) Add(k, v []byte) {
+	b.add(k, v)
+}
+
+func (b *btree) Set(k, v []byte) {
+	b.set(k, v)
+}
+
+func (b *btree) Get(k []byte) []byte {
+	return b.get(k)
+}
+
+func (b *btree) Del(k []byte) {
+	b.del(k)
+}
+
 func NewBTree() *btree {
 	return &btree{}
 }
