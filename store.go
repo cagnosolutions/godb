@@ -6,18 +6,18 @@ import (
 	"sync"
 )
 
-type Store struct {
+type store struct {
 	buf *bytes.Buffer
 	sync.RWMutex
 }
 
-func NewStore() *Store {
-	return &Store{
+func Newstore() *store {
+	return &store{
 		buf: bytes.NewBuffer(make([]byte, 24, 24)),
 	}
 }
 
-func (s *Store) genKey(k interface{}) (key_t, error) {
+func (s *store) genKey(k interface{}) ([]byte, error) {
 	switch k.(type) {
 	case string:
 		k = []byte(k.(string))
@@ -30,9 +30,9 @@ func (s *Store) genKey(k interface{}) (key_t, error) {
 	if err := binary.Write(s.buf, binary.BigEndian, k); err != nil {
 		s.buf.Reset()
 		s.Unlock()
-		return key_t_zero, err
+		return nil, err
 	}
-	var key key_t
+	var key []byte
 	if s.buf.Len() > 24 {
 		s.buf.Truncate(24)
 	}
@@ -42,7 +42,7 @@ func (s *Store) genKey(k interface{}) (key_t, error) {
 	return key, nil
 }
 
-func (s *Store) Add(k, v interface{}) error {
+func (s *store) Add(k, v interface{}) error {
 	_, err := s.genKey(k)
 	if err != nil {
 		return err
@@ -50,7 +50,7 @@ func (s *Store) Add(k, v interface{}) error {
 	return nil
 }
 
-func (s *Store) Put(k, v interface{}) error {
+func (s *store) Put(k, v interface{}) error {
 	_, err := s.genKey(k)
 	if err != nil {
 		return err
@@ -58,7 +58,7 @@ func (s *Store) Put(k, v interface{}) error {
 	return nil
 }
 
-func (s *Store) Get(k, ptr interface{}) error {
+func (s *store) Get(k, ptr interface{}) error {
 	_, err := s.genKey(k)
 	if err != nil {
 		return err
@@ -66,7 +66,7 @@ func (s *Store) Get(k, ptr interface{}) error {
 	return nil
 }
 
-func (s *Store) Del(k interface{}) error {
+func (s *store) Del(k interface{}) error {
 	_, err := s.genKey(k)
 	if err != nil {
 		return err

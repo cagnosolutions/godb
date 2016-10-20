@@ -24,18 +24,18 @@ func dropIndex() {
 	// destoy tree and properly flush and close engine
 }
 
-func (i *index) add(k key_t, v []byte) error {
+func (i *index) add(k, v []byte) error {
 	return nil
 }
 
-func (i *index) set(k key_t, v []byte) error {
+func (i *index) set(k, v []byte) error {
 	return nil
 }
 
-func (i *index) get(k key_t) (*record, error) {
+func (i *index) get(k []byte) (*record, error) {
 	return &record{}, nil
 }
 
-func (i *index) del(k key_t) error {
+func (i *index) del(k []byte) error {
 	return nil
 }

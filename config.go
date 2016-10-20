@@ -10,8 +10,9 @@ package godb
 const (
 	slab = 1 << 26 // 64MB
 	page = 1 << 12 //  4KB
-	temp = [page]byte{ /* empty page */ }
 )
+
+var temp = make([]byte, page, page)
 
 /*
  *	tree / index (constants and variables)
