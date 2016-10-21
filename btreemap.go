@@ -3,6 +3,7 @@ package godb
 import (
 	"bytes"
 	"unsafe"
+	"os"
 )
 
 const M = 128
@@ -30,13 +31,25 @@ func (n *node) hasKey(k []byte) int {
 
 // leaf node record
 type record struct {
-	key []byte
-	val []byte
+	key []byte // fixed length 24 byte key
+	val []byte // fixed lwngth 4072 byte value
+}
+
+func (writeRecord(r *record) []byte {
+    return append(r.key, r.value...)
+}
+
+func readRecord(data []byte) *record {
+   return &record{
+        key: data[:25]
+        val: data[25:bytes.Index(data[25:], '0x00')+1)
+    }
 }
 
 // btree represents the main b+btree
 type btree struct {
 	root  *node
+	ngin *engine
 	count int
 }
 
@@ -64,8 +77,15 @@ func (b *btree) Del(k []byte) {
 	b.del(k)
 }
 
-func NewBTree() *btree {
-	return &btree{}
+func NewBTree(path string) *btree {
+	tree := &btree{
+		root : &node{leaf: true}
+		}
+	tree.ptrs[M-1] = nil
+	tree.rent = nil
+	tree.ngin = OpenEngine(path)
+	}
+	return tree
 }
 
 // Has returns a boolean indicating weather or not the
@@ -126,6 +146,7 @@ func (t *btree) set(key []byte, val []byte) {
 	// find correct key index, set value and return
 
 	if i := leaf.hasKey(key); i > -1 {
+	 //NOTE: take care of this instance
 		(*record)(unsafe.Pointer(leaf.ptrs[i])).val = val
 		return // overwriting existing record
 	}
@@ -281,10 +302,24 @@ func insertIntoLeaf(leaf *node, key []byte, ptr *record) {
 	for insertionPoint < leaf.numk && bytes.Compare(leaf.keys[insertionPoint], key) == -1 {
 		insertionPoint++
 	}
+	
+	// key bounds check
+	if len(key) > 24 {
+	    panic("key exceeds maximum key length")
+	}
+	
+	// value bounds check
+	if len(value) > page-24 {
+	    panic("value exceeds maximum value length")
+	}
+	
 	for i = leaf.numk; i > insertionPoint; i-- {
 		leaf.keys[i] = leaf.keys[i-1]
 		leaf.ptrs[i] = leaf.ptrs[i-1]
 	}
+	
+	leaf.engine.set(writeRecord(ptr), insertionPoint)
+	
 	leaf.keys[insertionPoint] = key
 	leaf.ptrs[insertionPoint] = unsafe.Pointer(ptr)
 	leaf.numk++
@@ -357,8 +392,8 @@ func insertIntoLeafAfterSplitting(root, leaf *node, key []byte, ptr *record) *no
 // Get returns the record for
 // a given key if it exists
 func (t *btree) get(key []byte) []byte {
-	if _, ptr := t.find(key); ptr != nil {
-		return (*record)(unsafe.Pointer(ptr)).val
+	if _, record := t.find(key); record != nil {
+		return (*record).val
 	}
 	return nil
 }
@@ -366,8 +401,8 @@ func (t *btree) get(key []byte) []byte {
 // find is IDENTICAL TO GET, ONLY IT RETURNS AN UNSAFE.POINTER TO A RECORD
 // INSTEAD OF THAT RECORDS VALUE.
 //
-// returns: leaf node, ptr->record
-func (t *btree) find(key []byte) (*node, unsafe.Pointer) {
+// returns: leaf node, record
+func (t *btree) find(key []byte) (*node, *record) {
 	leaf := findLeaf(t.root, key)
 	if leaf == nil {
 		return nil, nil
@@ -380,8 +415,9 @@ func (t *btree) find(key []byte) (*node, unsafe.Pointer) {
 	}
 	if i == leaf.numk {
 		return nil, nil
-	}
-	return leaf, leaf.ptrs[i]
+		}
+	
+	return leaf, readRecord(leaf.engine.get(i))
 }
 
 /*
@@ -738,3 +774,4 @@ func cut(length int) int {
 	}
 	return length/2 + 1
 }
+
