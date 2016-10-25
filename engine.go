@@ -47,6 +47,18 @@ import (
    the correct locations of said records.
 */
 
+// leaf node record
+type record struct {
+	off int
+	key []byte // fixed length 24 byte key
+	val []byte // fixed lwngth 4072 byte value
+}
+
+func (r *record) data() []byte {
+	// NOTE: do copy call here cuz more efficient
+	return append(r.key, append(r.val, make([]byte, (page-(len(r.key)+len(r.val))))...)...)
+}
+
 type engine struct {
 	file *os.File
 	//indx *btree
@@ -54,30 +66,33 @@ type engine struct {
 	data mmap
 }
 
-func (e *engine) addRecord(r *record) int {
+func (e *engine) addRecord(r *record) {
 	k, o := 0, -1
 	for o := k * page; o < len(e.data); k++ {
 		if e.data[o] == 0x00 {
-			return &record{key, val}, o
+
+			copy(e.data[o:o+page], r.data())
+			return
 		}
 	}
+	// hasn't set
 	e.grow()
-	return &record{key, val}, o
+
+	// still set
+	copy(e.data[o:o+page], r.data())
+	return
 }
 
 func (e *engine) getRecord(k offset) *record {
 	o := k * page
 	if e.data[o] != 0x00 {
-		if n := bytes.IndexByte(e.data[o:o+page], byte(0x00)); n > -1 {
-			return e.data[o : o+n]
-			key := e.data[o : o+25]
-			j := bytes.IndexByte(e.data[o+25:o+25+n], 0x00)
-			if j == -1 {
-				return nil
-			}
-			val := e.data[o+25 : j]
-			return &record{key, val}
+		key := e.data[o : o+25]
+		n := bytes.IndexByte(e.data[o+25:o+page], 0x00)
+		if n == -1 {
+			return nil
 		}
+		val := e.data[o+25 : n]
+		return &record{key, val}
 	}
 	return nil
 }

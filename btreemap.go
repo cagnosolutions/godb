@@ -29,13 +29,6 @@ func (n *node) hasKey(k []byte) int {
 	return -1
 }
 
-// leaf node record
-type record struct {
-	off int
-	key []byte // fixed length 24 byte key
-	val []byte // fixed lwngth 4072 byte value
-}
-
 func newRecord(key, val []byte) (*record, error) {
 	// key bounds check
 	if len(key) > 24 {
@@ -434,7 +427,7 @@ func (t *btree) find(key []byte) (*node, *record) {
 		return nil, nil
 	}
 
-	return leaf, readRecord(leaf.engine.get(i))
+	return leaf, (*record)(unsafe.Pointer(leaf.ptrs[i]))
 }
 
 /*
