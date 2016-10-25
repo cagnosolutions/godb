@@ -7,6 +7,46 @@ import (
 	"syscall"
 )
 
+/*
+    NOTE
+    ====
+    After much thought and
+    conceptuial testing in
+    python, there is no reason
+    to keep the data blocks 
+    ordered on disk. it will 
+    take a significant amount 
+    of time to implement and 
+    test and there is only
+    one single benefit of doing
+    so. that is, the ability to
+    binary search the data without
+    the use of the tree. this would
+    mainly be useful during queries,
+    and since we dont even know what
+    those would look like yet then 
+    i dont see this as being the most
+    pragmatic approach. 
+    
+    instead, the engine should have a 
+    newRecord() (*record, int) method 
+    that either finds an empty slot 
+    and returns a *record and offset
+    to the underlying mapped file, or
+    returns one from the end. in addition
+    the engine should have methods such as
+    getRecord(n int) *record, as well as
+    putRecord(n int, *record) that readd
+    the record off of disk at offset n, and
+    writes a record to offset n. the tree
+    can then be used in its origional state
+    (for the most part) as a primary index
+    to read and write records to disk via the
+    engine, without regatd to orsering. the
+    leaf node pointers will still point to 
+    the correct locations of said records.
+ */
+
 type engine struct {
 	file *os.File
 	//indx *btree
