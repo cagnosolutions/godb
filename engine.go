@@ -54,6 +54,45 @@ type engine struct {
 	data mmap
 }
 
+func (e *engine) newRecord(key, val []byte) (*record, int) {
+    k, o := 0, -1
+    for o := k * page; o < len(e.mmap); k++ {
+        if e.data[o] == 0x00 {
+            return &record{key, val}, o
+        }
+    }
+    e.grow()
+    return &record{key, val}, o
+}
+
+func (e *engine) getRecord(k offset) *record {
+	   o := k * page
+	   if e.data[o] != 0x00 {
+	       if n := bytes.IndexByte(e.data[o:o+page], byte(0x00)); n > -1 {
+		      	    return e.data[o : o+n]
+		      	    key := e.data[o : o+25]
+		      	    j := bytes.IndexByte(e.data[o+25:o+25+n], 0x00)
+		      	    if j == -1 {
+		      	        return nil
+		      	    }
+		      	    val := e.data[o+25 : j]
+		      	    return &record{key, val}
+		      }
+	   }
+	   return nil
+}
+
+func (e *engine) putRecord(k offset, r *record) {
+    o := k * page
+	    // do a bounds check, grow if nessicary...
+    if o+page >= len(e.data) {
+	        e.grow()
+	    }
+	    d := append(r.key, r.val...)
+	    // copy the data `one-off` the offset
+	    copy(e.data[o:], append(d, make([]byte, (page-len(d)))...)
+}
+
 func OpenEngine(path string) *engine {
 	_, err := os.Stat(path + `.db`)
 	// new instance
