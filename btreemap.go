@@ -2,8 +2,8 @@ package godb
 
 import (
 	"bytes"
+	"errors"
 	"unsafe"
-	"os"
 )
 
 const M = 128
@@ -31,25 +31,40 @@ func (n *node) hasKey(k []byte) int {
 
 // leaf node record
 type record struct {
+	off int
 	key []byte // fixed length 24 byte key
 	val []byte // fixed lwngth 4072 byte value
 }
 
-func (writeRecord(r *record) []byte {
-    return append(r.key, r.value...)
+func newRecord(key, val []byte) (*record, error) {
+	// key bounds check
+	if len(key) > 24 {
+		return nil, errors.New("key exceeds maximum key length")
+	}
+
+	// value bounds check
+	if len(val) > page-24 {
+		return nil, errors.New("value exceeds maximum value length")
+	}
+
+	return &record{key: key, val: val}, nil
+}
+
+func writeRecord(r *record) []byte {
+	return append(r.key, r.val...)
 }
 
 func readRecord(data []byte) *record {
-   return &record{
-        key: data[:25]
-        val: data[25:bytes.Index(data[25:], '0x00')+1)
-    }
+	return &record{
+		key: data[:25],
+		val: data[25 : bytes.IndexByte(data[25:], 0x00)+1],
+	}
 }
 
 // btree represents the main b+btree
 type btree struct {
 	root  *node
-	ngin *engine
+	ngin  *engine
 	count int
 }
 
@@ -79,12 +94,11 @@ func (b *btree) Del(k []byte) {
 
 func NewBTree(path string) *btree {
 	tree := &btree{
-		root : &node{leaf: true}
-		}
-	tree.ptrs[M-1] = nil
-	tree.rent = nil
-	tree.ngin = OpenEngine(path)
+		root: &node{leaf: true},
 	}
+	tree.root.ptrs[M-1] = nil
+	tree.root.rent = nil
+	tree.ngin = OpenEngine(path)
 	return tree
 }
 
@@ -133,9 +147,13 @@ func (t *btree) add(key []byte, val []byte) {
 // overwrite duplicate keys, as it does
 // not check to see if the key exists...
 func (t *btree) set(key []byte, val []byte) {
+	ptr, err := newRecord(key, val)
+	if err != nil {
+		panic(err)
+	}
 	// if the btree is empty, start a new one
 	if t.root == nil {
-		t.root = startNewbtree(key, &record{key, val})
+		t.root = startNewbtree(key, ptr)
 		t.count++ // incrementing record count by one
 		return
 	}
@@ -146,13 +164,12 @@ func (t *btree) set(key []byte, val []byte) {
 	// find correct key index, set value and return
 
 	if i := leaf.hasKey(key); i > -1 {
-	 //NOTE: take care of this instance
+		//NOTE: take care of this instance
+		t.ngin.set(writeRecord(ptr), i)
 		(*record)(unsafe.Pointer(leaf.ptrs[i])).val = val
 		return // overwriting existing record
 	}
 
-	// otherwise, create record ptr for given value
-	ptr := &record{key, val} // add a new record
 	// if the leaf has room, then insert key and record
 	if leaf.numk < M-1 {
 		insertIntoLeaf(leaf, ptr.key, ptr)
@@ -302,24 +319,24 @@ func insertIntoLeaf(leaf *node, key []byte, ptr *record) {
 	for insertionPoint < leaf.numk && bytes.Compare(leaf.keys[insertionPoint], key) == -1 {
 		insertionPoint++
 	}
-	
-	// key bounds check
+
+	/*// key bounds check
 	if len(key) > 24 {
-	    panic("key exceeds maximum key length")
+		panic("key exceeds maximum key length")
 	}
-	
+
 	// value bounds check
 	if len(value) > page-24 {
-	    panic("value exceeds maximum value length")
-	}
-	
+		panic("value exceeds maximum value length")
+	}*/
+
 	for i = leaf.numk; i > insertionPoint; i-- {
 		leaf.keys[i] = leaf.keys[i-1]
 		leaf.ptrs[i] = leaf.ptrs[i-1]
 	}
-	
-	leaf.engine.set(writeRecord(ptr), insertionPoint)
-	
+
+	// leaf.engine.set(writeRecord(ptr), insertionPoint)
+
 	leaf.keys[insertionPoint] = key
 	leaf.ptrs[insertionPoint] = unsafe.Pointer(ptr)
 	leaf.numk++
@@ -415,8 +432,8 @@ func (t *btree) find(key []byte) (*node, *record) {
 	}
 	if i == leaf.numk {
 		return nil, nil
-		}
-	
+	}
+
 	return leaf, readRecord(leaf.engine.get(i))
 }
 
@@ -430,6 +447,15 @@ func findLeaf(root *node, key []byte) *node {
 	if c == nil {
 		return c
 	}
+
+	/*
+		if !leaf {
+			j += i*order
+		} else {
+			j+i
+		}
+	*/
+
 	var i int
 	for !c.leaf {
 		i = 0
@@ -774,4 +800,3 @@ func cut(length int) int {
 	}
 	return length/2 + 1
 }
-
