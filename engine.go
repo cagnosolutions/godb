@@ -2,193 +2,181 @@ package godb
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
 )
 
-/*
-   NOTE
-   ====
-   After much thought and
-   conceptuial testing in
-   python, there is no reason
-   to keep the data blocks
-   ordered on disk. it will
-   take a significant amount
-   of time to implement and
-   test and there is only
-   one single benefit of doing
-   so. that is, the ability to
-   binary search the data without
-   the use of the tree. this would
-   mainly be useful during queries,
-   and since we dont even know what
-   those would look like yet then
-   i dont see this as being the most
-   pragmatic approach.
+const (
+	page = 1 << 12 //   4 KB
+	slab = 1 << 19 // 512 KB
+)
 
-   instead, the engine should have a
-   newRecord() (*record, int) method
-   that either finds an empty slot
-   and returns a *record and offset
-   to the underlying mapped file, or
-   returns one from the end. in addition
-   the engine should have methods such as
-   getRecord(n int) *record, as well as
-   putRecord(n int, *record) that readd
-   the record off of disk at offset n, and
-   writes a record to offset n. the tree
-   can then be used in its origional state
-   (for the most part) as a primary index
-   to read and write records to disk via the
-   engine, without regatd to orsering. the
-   leaf node pointers will still point to
-   the correct locations of said records.
-*/
+var empty = make([]byte, page, page)
 
-// leaf node record
-type record struct {
-	off int
-	key []byte // fixed length 24 byte key
-	val []byte // fixed lwngth 4072 byte value
+// database engine interface
+type dbEngine interface {
+	open(path string) (int, error)       // return size of open mapped file or an error encountered while opening engine
+	addRecord(r *record) (int, error)    // return a block page offset or non-nil error if there is an issue growing the file
+	setRecord(k offset, r *record) error // return a non-nil error if offset is outside of mapped reigon
+	getRecord(k offset) (*record, error) // return a record at provided offset or a non-nil error if offset is outside of mapped reigon
+	delRecord(k offset) error            // return a non-nil error if offset is outside of mapped reigon
+	grow() error                         // return a non-nil error if there was an issue growing the file
+	close() error                        // return any errors encountered while closing the engine
 }
 
-func (r *record) data() []byte {
-	// NOTE: do copy call here cuz more efficient
-	return append(r.key, append(r.val, make([]byte, (page-(len(r.key)+len(r.val))))...)...)
-}
-
+// database engine
 type engine struct {
 	file *os.File
-	//indx *btree
-	//free *btree
 	data mmap
 }
 
-func (e *engine) addRecord(r *record) {
-	k, o := 0, -1
-	for o := k * page; o < len(e.data); k++ {
-		if e.data[o] == 0x00 {
-
-			copy(e.data[o:o+page], r.data())
-			return
-		}
+func (e *engine) open(path string) (int, error) {
+	// check to make sure engine is not already open
+	if e.file != nil {
+		// return an error if it is
+		return -1, fmt.Errorf("engine[open]: engine is already open at path %q\n", path)
 	}
-	// hasn't set
-	e.grow()
-
-	// still set
-	copy(e.data[o:o+page], r.data())
-	return
-}
-
-func (e *engine) getRecord(k offset) *record {
-	o := k * page
-	if e.data[o] != 0x00 {
-		key := e.data[o : o+25]
-		n := bytes.IndexByte(e.data[o+25:o+page], 0x00)
-		if n == -1 {
-			return nil
-		}
-		val := e.data[o+25 : n]
-		return &record{key, val}
-	}
-	return nil
-}
-
-func (e *engine) putRecord(k offset, r *record) {
-	o := k * page
-	// do a bounds check, grow if nessicary...
-	if o+page >= len(e.data) {
-		e.grow()
-	}
-	d := append(r.key, r.val...)
-	// copy the data `one-off` the offset
-	copy(e.data[o:], append(d, make([]byte, (page-len(d)))...))
-}
-
-func OpenEngine(path string) *engine {
 	_, err := os.Stat(path + `.db`)
 	// new instance
 	if err != nil && !os.IsExist(err) {
 		dirs, _ := filepath.Split(path)
 		err := os.MkdirAll(dirs, 0755)
 		if err != nil {
-			panic(err)
+			return -1, err
 		}
 		fd, err := os.Create(path + `.db`)
 		if err != nil {
-			panic(err)
+			return -1, err
 		}
 		if err := fd.Truncate(int64(slab)); err != nil {
-			panic(err)
+			return -1, err
 		}
 		if err := fd.Close(); err != nil {
-			panic(err)
+			return -1, err
 		}
 	}
 	// existing
 	fd, err := os.OpenFile(path+`.db`, os.O_RDWR|os.O_APPEND, 0666)
 	if err != nil {
-		panic(err)
+		return -1, err
 	}
 	info, err := fd.Stat()
 	if err != nil {
-		panic(err)
+		return -1, err
 	}
-	// map file into virtual address space
-	return &engine{
-		file: fd,
-		data: Mmap(fd, 0, int(info.Size())),
-	}
+	// map file into virtual address space and set up engine
+	e.file = fd
+	e.data = Mmap(fd, 0, int(info.Size()))
+	// there were no errors, so return mapped size and a nil error
+	return int(info.Size()), nil
 }
 
-func (e *engine) set(d []byte, k int) {
-	// get byte offset from position k
-	o := k * page
-	// do a bounds check, grow if nessicary...
-	if o+page >= len(e.data) {
-		e.grow()
-	}
-	// copy the data `one-off` the offset
-	copy(e.data[o:], append(d, make([]byte, (page-len(d)))...))
-}
-
-func (e *engine) get(k int) []byte {
-	// get byte offset from position k
-	o := k * page
-	if e.data[o] != 0x00 {
-		if n := bytes.IndexByte(e.data[o:o+page], byte(0x00)); n > -1 {
-			return e.data[o : o+n]
+// add a new record to the engine at the first available slot
+// return a non-nil error if there is an issue growing the file
+func (e *engine) addRecord(r *record) (int, error) {
+	// initialize block position k at beginning of mapped file, as well as future byte offset
+	var k, o int
+	// start iterating through mapped file reigon one page at a time
+	for o = k * page; o < len(e.data); k++ {
+		// checking for empty page
+		if e.data[o] == 0x00 {
+			// found an empty page, re-use it; copy data into it
+			copy(e.data[o:o+page], r.data)
+			// return location of block in page offset
+			return o / page, nil
 		}
 	}
+	// haven't found any empty pages, so let's grow the file
+	if err := e.grow(); err != nil {
+		return -1, err
+	}
+	// write data to page
+	copy(e.data[o:o+page], r.data)
+	// return location of block in page offset
+	return o / page, nil
+}
+
+// update a record at provided offset, assuming one exists
+// return a non-nil error if offset is outside of mapped reigon
+func (e *engine) setRecord(k offset, r *record) error {
+	// get byte offset from block position k
+	o := k * page
+	// do a bounds check; if outside of mapped reigon...
+	if o+page >= len(e.data) {
+		// do not grow, return an error
+		return fmt.Errorf("engine[set]: cannot update record at block %d (offset %d)\n", k, o)
+	}
+	// wipe page in case updated data is smaller than original dataset
+	copy(e.data[o:o+page], empty)
+	// write updated data to page
+	copy(e.data[o:o+page], r.data)
+	// there were no errors, so return nil
 	return nil
 }
 
-func (e *engine) del(k int) {
-	// get byte offset from position k
+// return a record at provided offset, assuming one exists
+// return a non-nil error if offset is outside of mapped reigon
+func (e *engine) getRecord(k offset) (*record, error) {
+	// get byte offset from block position k
 	o := k * page
-	// copy number of pages * page size worth
-	// of nil bytes starting at the k's offset
-	copy(e.data[o:], temp)
+	// do a bounds check; if outside of mapped reigon...
+	if o+page >= len(e.data) {
+		// ...return an error
+		return nil, fmt.Errorf("engine[get]: cannot return record at block %d (offset %d)\n", k, o)
+	}
+	// create record to return
+	r := &record{}
+	// fill out record data if not empty, returning no error
+	if n := bytes.IndexByte(e.data[o:o+page], 0x00); n > 0 {
+		r.data = e.data[o:n]
+		return r, nil
+	}
+	// otherwise, return empty record, with an error
+	return r, fmt.Errorf("engine[get]: empty record found at block %d (offset %d)", k, o)
 }
 
-func (e *engine) grow() {
-	// resize size to current size + 16MB chunk (grow in 16 MB chunks)
+// delete a record at provided offset, assuming one exists
+// return a non-nil error if offset is outside of mapped reigon
+func (e *engine) delRecord(k offset) error {
+	// get byte offset from block position k
+	o := k * page
+	// do a bounds check; if outside of mapped reigon...
+	if o+page >= len(e.data) {
+		// ...return an error
+		return fmt.Errorf("engine[del]: cannot delete record at block %d (offset %d)\n", k, o)
+	}
+	// otherwise, wipe page block at offset
+	copy(e.data[o:o+page], empty)
+	// there were no errors, so return nil
+	return nil
+}
+
+// grow the underlying mapped file
+func (e *engine) grow() error {
+	// resize the size to current size + 512 KBs, ie. leaf data page size
 	size := ((len(e.data) + slab) + page - 1) &^ (page - 1)
 	// unmap current mapping before growing underlying file...
 	e.data.Munmap()
 	// truncate underlying file to updated size, check for errors
 	if err := syscall.Ftruncate(int(e.file.Fd()), int64(size)); err != nil {
-		panic(err)
+		return error
 	}
 	// remap underlying file now that it has grown
 	e.data = Mmap(e.file, 0, size)
+	// there were no errors, so return nil
+	return nil
 }
 
-func (e *engine) CloseEngine() {
-	e.data.Sync()   // flush data to disk
-	e.data.Munmap() // unmap memory mappings
-	e.file.Close()  // close underlying file
+// close the engine, return any errors encountered
+func (e *engine) close() error {
+	e.data.Sync()                          // flush data to disk
+	e.data.Munmap()                        // unmap memory mappings
+	if err := e.file.Close(); err != nil { // close underlying file
+		return err
+	}
+	e.file = nil // set file descriptor to nil
+	// there were no errors, so return nil
+	return nil
 }

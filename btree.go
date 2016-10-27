@@ -2,24 +2,31 @@ package godb
 
 import (
 	"bytes"
-	"errors"
 	"unsafe"
 )
 
 const M = 128
 
-// node represents a btree's node (if order/M s 128 a node will be exactly 4096 bytes also key nust be 24 bytes)
+// database btree node interface
+type dbBTreeNode interface {
+	hasKey(k []byte) int // returns index of matching key if it exists, otherwise -1
+}
+
+// node represents a btree's node of order M.
+// if M is 128 a node will occupy 4096 bytes.
+// to ensure that a node has only 4096 bytes,
+// a fixed sized key of 24 bytes must be used
 type node struct {
 	numk int
-	keys [M - 1][]byte // slice occupies 24 bytes gen key creates fix len [24]byte
+	keys [M - 1][]byte
 	ptrs [M]unsafe.Pointer
 	rent *node
 	leaf bool
 }
 
-// checks in a node contains a key
-// if it exists it will return the index of the key
-// if it does not exist it return -1
+// checks if a node contains a matching key and
+// returns the index of the key, otherwise if it
+// does not exist it will return a value of -1.
 func (n *node) hasKey(k []byte) int {
 	for i := 0; i < n.numk; i++ {
 		if bytes.Equal(k, n.keys[i]) {
@@ -29,69 +36,41 @@ func (n *node) hasKey(k []byte) int {
 	return -1
 }
 
-func newRecord(key, val []byte) (*record, error) {
-	// key bounds check
-	if len(key) > 24 {
-		return nil, errors.New("key exceeds maximum key length")
-	}
-
-	// value bounds check
-	if len(val) > page-24 {
-		return nil, errors.New("value exceeds maximum value length")
-	}
-
-	return &record{key: key, val: val}, nil
+// database btree interface
+type dbBTree interface {
+	has(key []byte) bool
+	add(key, val []byte)
+	set(key, val []byte)
+	get(key []byte) []byte
+	del(key []byte)
 }
 
-func writeRecord(r *record) []byte {
-	return append(r.key, r.val...)
-}
+// exported methods for testing and eas of use; temporary...
+func (b *btree) Count() int          { return b.count }
+func (b *btree) Has(k []byte) bool   { return b.has(k) }
+func (b *btree) Add(k, v []byte)     { b.add(k, v) }
+func (b *btree) Set(k, v []byte)     { b.set(k, v) }
+func (b *btree) Get(k []byte) []byte { return b.get(k) }
+func (b *btree) Del(k []byte)        { b.del(k) }
 
-func readRecord(data []byte) *record {
-	return &record{
-		key: data[:25],
-		val: data[25 : bytes.IndexByte(data[25:], 0x00)+1],
-	}
-}
-
-// btree represents the main b+btree
+// btree is a b+tree implementation
 type btree struct {
 	root  *node
 	ngin  *engine
 	count int
 }
 
-func (b *btree) Count() int {
-	return b.count
-}
-
-func (b *btree) Has(k []byte) bool {
-	return b.has(k)
-}
-
-func (b *btree) Add(k, v []byte) {
-	b.add(k, v)
-}
-
-func (b *btree) Set(k, v []byte) {
-	b.set(k, v)
-}
-
-func (b *btree) Get(k []byte) []byte {
-	return b.get(k)
-}
-
-func (b *btree) Del(k []byte) {
-	b.del(k)
-}
-
+// creates a new btree instance and returns it if
+// there are no errors encountered while opening
+// the mmap'd file (engine) backing the tree on disk.
 func NewBTree(path string) *btree {
-	tree := &btree{
-		root: &node{leaf: true},
-	}
+	tree := new(btree)
+	tree.root = &node{leaf: true}
 	tree.root.ptrs[M-1] = nil
 	tree.root.rent = nil
-	tree.ngin = OpenEngine(path)
+	if err := tree.ngin.open(path); err != nil {
+		panic(err)
+	}
 	return tree
 }
 
