@@ -21,19 +21,25 @@ type record struct {
 	data []byte // contains a fixed length 24 byte key, leaving 4072 bytes for the value
 }
 
+// create a pointer to a new record
+func newRecord(key, val []byte) *record {
+	return &record{append(key, val...)}
+}
+
 // return key from data record
 func (r *record) key() []byte {
-	return r.data[:maxKey+1]
+	return r.data[:maxKey]
 }
 
 // return val from data record
 func (r *record) val() []byte {
-	if n := bytes.IndexByte(r.data[maxKey+1:], 0x00); n > -1 {
-		return r.data[maxKey+1 : n]
+	if n := bytes.IndexByte(r.data[maxKey:], 0x00); n > -1 {
+		return r.data[maxKey:n]
 	}
-	return r.data[maxKey+1:]
+	return r.data[maxKey:]
 }
 
+// do verify by doing bounds check
 func verify(key, val []byte) error {
 	// key bounds check
 	if len(key) > maxKey {

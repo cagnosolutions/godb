@@ -17,13 +17,13 @@ var empty = make([]byte, page, page)
 
 // database engine interface
 type dbEngine interface {
-	open(path string) (int, error)       // return size of open mapped file or an error encountered while opening engine
-	addRecord(r *record) (int, error)    // return a block page offset or non-nil error if there is an issue growing the file
-	setRecord(k offset, r *record) error // return a non-nil error if offset is outside of mapped reigon
-	getRecord(k offset) (*record, error) // return a record at provided offset or a non-nil error if offset is outside of mapped reigon
-	delRecord(k offset) error            // return a non-nil error if offset is outside of mapped reigon
-	grow() error                         // return a non-nil error if there was an issue growing the file
-	close() error                        // return any errors encountered while closing the engine
+	open(path string) (int, error)    // return size of open mapped file or an error encountered while opening engine
+	addRecord(r *record) (int, error) // return a block page offset or non-nil error if there is an issue growing the file
+	setRecord(k int, r *record) error // return a non-nil error if offset is outside of mapped reigon
+	getRecord(k int) (*record, error) // return a record at provided offset or a non-nil error if offset is outside of mapped reigon
+	delRecord(k int) error            // return a non-nil error if offset is outside of mapped reigon
+	grow() error                      // return a non-nil error if there was an issue growing the file
+	close() error                     // return any errors encountered while closing the engine
 }
 
 // database engine
@@ -32,11 +32,11 @@ type engine struct {
 	data mmap
 }
 
-func (e *engine) open(path string) (int, error) {
+func (e *engine) open(path string) error {
 	// check to make sure engine is not already open
 	if e.file != nil {
 		// return an error if it is
-		return -1, fmt.Errorf("engine[open]: engine is already open at path %q\n", path)
+		return fmt.Errorf("engine[open]: engine is already open at path %q\n", path)
 	}
 	_, err := os.Stat(path + `.db`)
 	// new instance
@@ -44,33 +44,33 @@ func (e *engine) open(path string) (int, error) {
 		dirs, _ := filepath.Split(path)
 		err := os.MkdirAll(dirs, 0755)
 		if err != nil {
-			return -1, err
+			return err
 		}
 		fd, err := os.Create(path + `.db`)
 		if err != nil {
-			return -1, err
+			return err
 		}
 		if err := fd.Truncate(int64(slab)); err != nil {
-			return -1, err
+			return err
 		}
 		if err := fd.Close(); err != nil {
-			return -1, err
+			return err
 		}
 	}
 	// existing
 	fd, err := os.OpenFile(path+`.db`, os.O_RDWR|os.O_APPEND, 0666)
 	if err != nil {
-		return -1, err
+		return err
 	}
 	info, err := fd.Stat()
 	if err != nil {
-		return -1, err
+		return err
 	}
 	// map file into virtual address space and set up engine
 	e.file = fd
 	e.data = Mmap(fd, 0, int(info.Size()))
 	// there were no errors, so return mapped size and a nil error
-	return int(info.Size()), nil
+	return nil
 }
 
 // add a new record to the engine at the first available slot
@@ -100,7 +100,7 @@ func (e *engine) addRecord(r *record) (int, error) {
 
 // update a record at provided offset, assuming one exists
 // return a non-nil error if offset is outside of mapped reigon
-func (e *engine) setRecord(k offset, r *record) error {
+func (e *engine) setRecord(k int, r *record) error {
 	// get byte offset from block position k
 	o := k * page
 	// do a bounds check; if outside of mapped reigon...
@@ -118,7 +118,7 @@ func (e *engine) setRecord(k offset, r *record) error {
 
 // return a record at provided offset, assuming one exists
 // return a non-nil error if offset is outside of mapped reigon
-func (e *engine) getRecord(k offset) (*record, error) {
+func (e *engine) getRecord(k int) (*record, error) {
 	// get byte offset from block position k
 	o := k * page
 	// do a bounds check; if outside of mapped reigon...
@@ -137,9 +137,43 @@ func (e *engine) getRecord(k offset) (*record, error) {
 	return r, fmt.Errorf("engine[get]: empty record found at block %d (offset %d)", k, o)
 }
 
+func (e *engine) getRecordKey(k int) ([]byte, error) {
+	// get byte offset from block position k
+	o := k * page
+	// do a bounds check; if outside of mapped reigon...
+	if o+page >= len(e.data) {
+		// ...return an error
+		return nil, fmt.Errorf("engine[getKey]: cannot return key at block %d (offset %d)\n", k, o)
+	}
+
+	// fill out record data if not empty, returning no error
+	if n := bytes.IndexByte(e.data[o:o+maxKey], 0x00); n > 0 {
+		return e.data[o:n], nil
+	}
+	// otherwise, return empty record, with an error
+	return nil, fmt.Errorf("engine[getKey]: empty key found at block %d (offset %d)", k, o)
+}
+
+func (e *engine) getRecordVal(k int) ([]byte, error) {
+	// get byte offset from block position k
+	o := k * page
+	// do a bounds check; if outside of mapped reigon...
+	if o+page >= len(e.data) {
+		// ...return an error
+		return nil, fmt.Errorf("engine[getVal]: cannot return val at block %d (offset %d)\n", k, o)
+	}
+
+	// fill out record data if not empty, returning no error
+	if n := bytes.IndexByte(e.data[o+maxKey:o+page], 0x00); n > 0 {
+		return e.data[o+maxKey : n], nil
+	}
+	// otherwise, return empty record, with an error
+	return nil, fmt.Errorf("engine[getVal]: empty val found at block %d (offset %d)", k, o)
+}
+
 // delete a record at provided offset, assuming one exists
 // return a non-nil error if offset is outside of mapped reigon
-func (e *engine) delRecord(k offset) error {
+func (e *engine) delRecord(k int) error {
 	// get byte offset from block position k
 	o := k * page
 	// do a bounds check; if outside of mapped reigon...
@@ -161,7 +195,7 @@ func (e *engine) grow() error {
 	e.data.Munmap()
 	// truncate underlying file to updated size, check for errors
 	if err := syscall.Ftruncate(int(e.file.Fd()), int64(size)); err != nil {
-		return error
+		return err
 	}
 	// remap underlying file now that it has grown
 	e.data = Mmap(e.file, 0, size)

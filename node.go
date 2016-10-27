@@ -1,5 +1,10 @@
 package godb
 
+import (
+	"bytes"
+	"unsafe"
+)
+
 // database btree node interface
 type dbBTreeNode interface {
 	hasKey(k []byte) int // returns index of matching key if it exists, otherwise -1
@@ -19,12 +24,12 @@ type node struct {
 
 // create and return a new index node
 func newNode() *node {
-    return &node{}
+	return &node{}
 }
 
 // create and return a new leaf node
 func newLeaf() *node {
-    return &node{leaf:true}
+	return &node{leaf: true}
 }
 
 // checks if a node contains a matching key and
