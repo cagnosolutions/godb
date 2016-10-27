@@ -7,35 +7,6 @@ import (
 
 const M = 128
 
-// database btree node interface
-type dbBTreeNode interface {
-	hasKey(k []byte) int // returns index of matching key if it exists, otherwise -1
-}
-
-// node represents a btree's node of order M.
-// if M is 128 a node will occupy 4096 bytes.
-// to ensure that a node has only 4096 bytes,
-// a fixed sized key of 24 bytes must be used
-type node struct {
-	numk int
-	keys [M - 1][]byte
-	ptrs [M]unsafe.Pointer
-	rent *node
-	leaf bool
-}
-
-// checks if a node contains a matching key and
-// returns the index of the key, otherwise if it
-// does not exist it will return a value of -1.
-func (n *node) hasKey(k []byte) int {
-	for i := 0; i < n.numk; i++ {
-		if bytes.Equal(k, n.keys[i]) {
-			return i
-		}
-	}
-	return -1
-}
-
 // database btree interface
 type dbBTree interface {
 	has(key []byte) bool
@@ -292,16 +263,6 @@ func insertIntoLeaf(leaf *node, key []byte, ptr *record) {
 		insertionPoint++
 	}
 
-	/*// key bounds check
-	if len(key) > 24 {
-		panic("key exceeds maximum key length")
-	}
-
-	// value bounds check
-	if len(value) > page-24 {
-		panic("value exceeds maximum value length")
-	}*/
-
 	for i = leaf.numk; i > insertionPoint; i-- {
 		leaf.keys[i] = leaf.keys[i-1]
 		leaf.ptrs[i] = leaf.ptrs[i-1]
@@ -406,7 +367,14 @@ func (t *btree) find(key []byte) (*node, *record) {
 		return nil, nil
 	}
 
-	return leaf, (*record)(unsafe.Pointer(leaf.ptrs[i]))
+b := (*block)(unsafe.Pointer(leaf.ptrs[i]))
+r, err := t.ngin.getRecord(b.pos))
+if err != nil {
+    panic(err)
+}
+return leaf, r.val()
+
+	//return leaf, (*record)(unsafe.Pointer(leaf.ptrs[i]))
 }
 
 /*
@@ -419,14 +387,6 @@ func findLeaf(root *node, key []byte) *node {
 	if c == nil {
 		return c
 	}
-
-	/*
-		if !leaf {
-			j += i*order
-		} else {
-			j+i
-		}
-	*/
 
 	var i int
 	for !c.leaf {
