@@ -11,20 +11,19 @@ const M = 128
 // database btree interface
 type dbBTree interface {
 	has(key []byte) bool
-	add(key, val []byte)
-	set(key, val []byte)
-	get(key []byte) []byte
-	del(key []byte)
+	add(key, val []byte) error
+	set(key, val []byte) error
+	get(key []byte) ([]byte, error)
+	del(key []byte) error
 }
 
 // exported methods for testing and eas of use; temporary...
 func (b *btree) Count() int        { return b.count }
-func (b *btree) Has(k []byte) bool { return b.has(k) }
-func (b *btree) Add(k, v []byte)   { b.add(k, v) }
-func (b *btree) Set(k, v []byte)   { b.set(k, v) }
-
-//func (b *btree) Get(k []byte) []byte { return b.get(k) }
-func (b *btree) Del(k []byte) { b.del(k) }
+func (b *btree) Has(k []byte) bool { return b.has(k) bool }
+func (b *btree) Add(k, v []byte) error  { b.add(k, v) error }
+func (b *btree) Set(k, v []byte) error  { b.set(k, v) error }
+func (b *btree) Get(k []byte) []byte { return b.get(k) ([]byte, error) }
+func (b *btree) Del(k []byte) error { b.del(k) error }
 
 // btree is a b+tree implementation
 type btree struct {
@@ -56,31 +55,36 @@ func (t *btree) has(key []byte) bool {
 
 // Add inserts a new record using provided key.
 // It only inserts if the key does not already exist.
-func (t *btree) add(key []byte, val []byte) {
+func (t *btree) add(key []byte, val []byte) error {
 	// check if key already exists
 	leaf, blk := t.find(key)
 	if leaf == nil {
-		panic(errors.New("leaf is nil"))
+		return fmt.Errorf("btree[add]: leaf node is nil\n")
 	}
 	if blk != nil {
-		panic(errors.New("key already exists")) // key already exists, don't add anything
+	  // key already exists, don't add!
+		return fmt.Errorf("btree[add]: key already exists, not adding\n")
 	}
 	blk = new(block)
 	// key does not exist. add into engine
 	pos, err := t.ngin.addRecord(newRecord(key, val))
 	if err != nil {
-		panic(err) // failed to add to engine
+	  // failed to add record to engine
+		return fmt.Errorf("btree[add]: failed to add record to engine -> %s", err)
 	}
 	blk.pos = pos
 	// if room in leaf insert
 	if leaf.numk < M-1 {
+	  // inserting block into leaf (already added record to engine)
 		insertIntoLeaf(leaf, key, blk)
-		t.count++ // incrementing record count by one
-		return
+		// incrementing record count by one
+		t.count++ 
+		return nil
 	}
 	// otherwise, insert, split, and balance... returning updated root
 	t.count++ // incrementing record count by one
 	t.root = insertIntoLeafAfterSplitting(t.root, leaf, key, blk)
+	return nil
 }
 
 // Set is mainly used for re-indexing
@@ -88,36 +92,38 @@ func (t *btree) add(key []byte, val []byte) {
 // be contained the btree/index. it will
 // overwrite duplicate keys, as it does
 // not check to see if the key exists...
-func (t *btree) set(key []byte, val []byte) {
+func (t *btree) set(key []byte, val []byte) error {
 	// check if key already exists
 	leaf, blk := t.find(key)
 	if leaf == nil {
-		panic(errors.New("leaf is nil"))
+		return fmt.Errorf("btree[set]: leaf node is nil\n")
 	}
-
 	// check if key exists in tree
 	if blk != nil {
-		t.ngin.setRecord(blk.pos, newRecord(key, val)) // key exists in tree, update engine
-		return
+	  // key exists in tree, update engine
+		t.ngin.setRecord(blk.pos, newRecord(key, val)) 
+		return nil
 	}
-
 	// key does not exist. add into engine
 	blk = new(block)
 	pos, err := t.ngin.addRecord(newRecord(key, val))
 	if err != nil {
-		panic(err) // failed to add to engine
+	  // failed to add to engine
+		return fmt.Errorf("btree[set]: failed to add to engine -> %s", err)
 	}
 	blk.pos = pos
 	// if room in leaf insert
 	if leaf.numk < M-1 {
+	  // innsert block into leaf (already added recordto engine)
 		insertIntoLeaf(leaf, key, blk)
-		t.count++ // incrementing record count by one
-		return
+		// increent record count by one
+		t.count++
+		return nil
 	}
 	// otherwise, insert, split, and balance... returning updated root
 	t.count++ // incrementing record count by one
 	t.root = insertIntoLeafAfterSplitting(t.root, leaf, key, blk)
-	return
+	return nil
 }
 
 /*
@@ -338,12 +344,15 @@ func insertIntoLeafAfterSplitting(root, leaf *node, key []byte, blk *block) *nod
 
 // Get returns the record for
 // a given key if it exists
-/*func (t *btree) get(key []byte) []byte {
-	if _, record := t.find(key); record != nil {
-		return (*record).val
+func (t *btree) get(key []byte) ([]byte, error) {
+	if _, blk := t.find(key); blk != nil {
+	  if rec, err := t.ngin.getRecord(blk.pos); rec != ni {
+	      return rec.getVal()
+	  }
+	  return fmt.Errorf("btree[get]: failed to get record from engine -> %s", err)
 	}
-	return nil
-}*/
+	return fmt.Errorf("btree[get]: failed to get block from leaf\n")
+}
 
 // returns: leaf node, block
 func (t *btree) find(key []byte) (*node, *block) {
@@ -417,7 +426,7 @@ func findLeaf(root *node, key []byte) *node {
 }*/
 
 // Del deletes a record by key
-func (t *btree) del(key []byte) {
+func (t *btree) del(key []byte) error {
 	// t.find returns *node (leaf node), and a *block
 	// otherwise it will simply return nil for both values
 	leaf, blk := t.find(key)
@@ -425,11 +434,11 @@ func (t *btree) del(key []byte) {
 		// double check passed key, and OLD records key
 		rKey, err := t.ngin.getRecordKey(blk.pos)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("btree[del]: failed to get record from engine -> %s", err)
 		}
 		if bytes.Equal(rKey, key) {
 			if err := t.ngin.delRecord(blk.pos); err != nil {
-				panic(err)
+			    return fmt.Errorf("btree[del]: failed to delete record from engine -> %s", err)
 			}
 			// remove from btree, rebalance, etc.
 			t.count-- // decrementing record count by one
