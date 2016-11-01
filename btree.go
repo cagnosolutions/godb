@@ -2,7 +2,7 @@ package godb
 
 import (
 	"bytes"
-	"errors"
+	"fmt"
 	"unsafe"
 )
 
@@ -10,20 +10,15 @@ const M = 128
 
 // database btree interface
 type dbBTree interface {
+	open(path string) error
+	load(key []byte, blk *block) error
 	has(key []byte) bool
 	add(key, val []byte) error
 	set(key, val []byte) error
 	get(key []byte) ([]byte, error)
 	del(key []byte) error
+	close() error
 }
-
-// exported methods for testing and eas of use; temporary...
-func (b *btree) Count() int        { return b.count }
-func (b *btree) Has(k []byte) bool { return b.has(k) bool }
-func (b *btree) Add(k, v []byte) error  { b.add(k, v) error }
-func (b *btree) Set(k, v []byte) error  { b.set(k, v) error }
-func (b *btree) Get(k []byte) []byte { return b.get(k) ([]byte, error) }
-func (b *btree) Del(k []byte) error { b.del(k) error }
 
 // btree is a b+tree implementation
 type btree struct {
@@ -35,15 +30,50 @@ type btree struct {
 // creates a new btree instance and returns it if
 // there are no errors encountered while opening
 // the mmap'd file (engine) backing the tree on disk.
-func NewBTree(path string) (*btree, error) {
-	tree := new(btree)
-	tree.root = newLeaf()
-	tree.root.ptrs[M-1] = nil
-	tree.root.rent = nil
-	if err := tree.ngin.open(path); err != nil {
-        return nil, fmt.Errorf("%s", err)
+func (t *btree) open(path string) error {
+	t.root = newLeaf()
+	t.root.ptrs[M-1] = nil
+	t.root.rent = nil
+	isnew, err := t.ngin.open(path)
+	if err != nil {
+		return fmt.Errorf("btree[open]: error opening tree, counld not open engine -> %s", err)
 	}
-	return tree, nil
+	// reconstruct index if a mapped file already exists
+	if !isnew {
+		for ldr := range t.ngin.loadAllRecords() {
+			if err := t.load(ldr.key, ldr.pos); err != nil {
+				return fmt.Errorf("btree...loading: error while reconstructing: %q", err)
+			}
+		}
+	}
+	return nil
+}
+
+// Load reconstructs the tree without care to the value
+// because we are already provided with the block offset
+// and the key via the getAllRecordKeysAndBlocks() method
+// supplied to us via the engine.
+func (t *btree) load(key []byte, pos int) error {
+	// check if key already exists
+	leaf, _ := t.find(key)
+	if leaf == nil {
+		// returned empty leaf node
+		return fmt.Errorf("btree[load]: leaf node is nil\n")
+	}
+	// create block to insert
+	blk := &block{pos}
+	// if room in leaf insert
+	if leaf.numk < M-1 {
+		// inserting block into leaf (already added record to engine)
+		insertIntoLeaf(leaf, key, blk)
+		// incrementing record count by one
+		t.count++
+		return nil
+	}
+	// otherwise, insert, split, and balance... returning updated root
+	t.count++ // incrementing record count by one
+	t.root = insertIntoLeafAfterSplitting(t.root, leaf, key, blk)
+	return nil
 }
 
 // Has returns a boolean indicating weather or not the
@@ -59,26 +89,27 @@ func (t *btree) add(key []byte, val []byte) error {
 	// check if key already exists
 	leaf, blk := t.find(key)
 	if leaf == nil {
+		// returned empty leaf node
 		return fmt.Errorf("btree[add]: leaf node is nil\n")
 	}
 	if blk != nil {
-	  // key already exists, don't add!
+		// key already exists, don't add!
 		return fmt.Errorf("btree[add]: key already exists, not adding\n")
 	}
 	blk = new(block)
 	// key does not exist. add into engine
 	pos, err := t.ngin.addRecord(newRecord(key, val))
 	if err != nil {
-	  // failed to add record to engine
+		// failed to add record to engine
 		return fmt.Errorf("btree[add]: failed to add record to engine -> %s", err)
 	}
 	blk.pos = pos
 	// if room in leaf insert
 	if leaf.numk < M-1 {
-	  // inserting block into leaf (already added record to engine)
+		// inserting block into leaf (already added record to engine)
 		insertIntoLeaf(leaf, key, blk)
 		// incrementing record count by one
-		t.count++ 
+		t.count++
 		return nil
 	}
 	// otherwise, insert, split, and balance... returning updated root
@@ -100,21 +131,21 @@ func (t *btree) set(key []byte, val []byte) error {
 	}
 	// check if key exists in tree
 	if blk != nil {
-	  // key exists in tree, update engine
-		t.ngin.setRecord(blk.pos, newRecord(key, val)) 
+		// key exists in tree, update engine
+		t.ngin.setRecord(blk.pos, newRecord(key, val))
 		return nil
 	}
 	// key does not exist. add into engine
 	blk = new(block)
 	pos, err := t.ngin.addRecord(newRecord(key, val))
 	if err != nil {
-	  // failed to add to engine
+		// failed to add to engine
 		return fmt.Errorf("btree[set]: failed to add to engine -> %s", err)
 	}
 	blk.pos = pos
 	// if room in leaf insert
 	if leaf.numk < M-1 {
-	  // innsert block into leaf (already added recordto engine)
+		// insert block into leaf (already added record to engine)
 		insertIntoLeaf(leaf, key, blk)
 		// increent record count by one
 		t.count++
@@ -129,17 +160,6 @@ func (t *btree) set(key []byte, val []byte) error {
 /*
  *	inserting internals
  */
-
-// first insertion, start a new btree
-/*func startNewbtree(key []byte, blk *block) *node {
-	root := newLeaf()
-	root.keys[0] = key
-	root.ptrs[0] = unsafe.Pointer(blk)
-	root.ptrs[M-1] = nil
-	root.rent = nil
-	root.numk++
-	return root
-}*/
 
 // creates a new root for two sub-btrees and inserts the key into the new root
 func insertIntoNewRoot(left *node, key []byte, right *node) *node {
@@ -346,12 +366,13 @@ func insertIntoLeafAfterSplitting(root, leaf *node, key []byte, blk *block) *nod
 // a given key if it exists
 func (t *btree) get(key []byte) ([]byte, error) {
 	if _, blk := t.find(key); blk != nil {
-	  if rec, err := t.ngin.getRecord(blk.pos); rec != ni {
-	      return rec.getVal()
-	  }
-	  return fmt.Errorf("btree[get]: failed to get record from engine -> %s", err)
+		val, err := t.ngin.getRecordVal(blk.pos)
+		if err != nil {
+			return val, nil
+		}
+		return nil, fmt.Errorf("btree[get]: failed to get record from engine -> %s", err)
 	}
-	return fmt.Errorf("btree[get]: failed to get block from leaf\n")
+	return nil, fmt.Errorf("btree[get]: failed to get block from leaf\n")
 }
 
 // returns: leaf node, block
@@ -399,32 +420,6 @@ func findLeaf(root *node, key []byte) *node {
 	return c
 }
 
-// binary search utility
-/*func search(n *node, key []byte) int {
-	lo, hi := 0, n.numk
-	for lo < hi {
-		md := (lo + hi) >> 1
-		if bytes.Compare(key, n.keys[md]) >= 0 {
-			lo = md + 1
-		} else {
-			hi = md - 1
-		}
-	}
-	return lo
-}*/
-
-// finds the first leaf in the btree (lexicographically)
-/*func findFirstLeaf(root *node) *node {
-	if root == nil {
-		return root
-	}
-	c := root
-	for !c.leaf {
-		c = (*node)(unsafe.Pointer(c.ptrs[0]))
-	}
-	return c
-}*/
-
 // Del deletes a record by key
 func (t *btree) del(key []byte) error {
 	// t.find returns *node (leaf node), and a *block
@@ -438,13 +433,14 @@ func (t *btree) del(key []byte) error {
 		}
 		if bytes.Equal(rKey, key) {
 			if err := t.ngin.delRecord(blk.pos); err != nil {
-			    return fmt.Errorf("btree[del]: failed to delete record from engine -> %s", err)
+				return fmt.Errorf("btree[del]: failed to delete record from engine -> %s", err)
 			}
 			// remove from btree, rebalance, etc.
 			t.count-- // decrementing record count by one
 			t.root = deleteEntry(t.root, leaf, key, unsafe.Pointer(blk))
 		}
 	}
+	return nil
 }
 
 /*
@@ -459,7 +455,7 @@ func getNeighborIndex(n *node) int {
 			return i - 1
 		}
 	}
-	panic("Search for nonexistent ptr to node in rent.")
+	panic("btree[getNeighborIndex]: (panic) search for nonexistent ptr to node in rent.")
 }
 
 func removeEntryFromNode(n *node, key []byte, ptr unsafe.Pointer) *node {
@@ -696,8 +692,30 @@ func destroybtreeNodes(n *node) {
 	n = nil // free
 }
 
+// Close destroys all the nodes of the btree
+func (t *btree) close() error {
+	destroybtreeNodes(t.root)
+	if err := t.ngin.close(); err != nil {
+		return fmt.Errorf("btree[close]: error encountered while closing engine -> %s", err)
+	}
+	return nil
+}
+
+// cut will return the proper
+// split point for a node
+func cut(length int) int {
+	if length%2 == 0 {
+		return length / 2
+	}
+	return length/2 + 1
+}
+
+/* UNKNOWN IF WE NEED YET OR NOT */
+
 // All returns all of the values in the btree (lexicographically)
-/*func (t *btree) All() [][]byte {
+
+/*
+func (t *btree) All() [][]byte {
 	leaf := findFirstLeaf(t.root)
 	if leaf == nil {
 		return nil
@@ -720,18 +738,51 @@ func destroybtreeNodes(n *node) {
 		leaf = (*node)(unsafe.Pointer(leaf.ptrs[M-1]))
 	}
 	return vals
-}*/
-
-// Close destroys all the nodes of the btree
-func (t *btree) close() {
-	destroybtreeNodes(t.root)
 }
+*/
 
-// cut will return the proper
-// split point for a node
-func cut(length int) int {
-	if length%2 == 0 {
-		return length / 2
+// binary search utility
+
+/*
+func search(n *node, key []byte) int {
+	lo, hi := 0, n.numk
+	for lo < hi {
+		md := (lo + hi) >> 1
+		if bytes.Compare(key, n.keys[md]) >= 0 {
+			lo = md + 1
+		} else {
+			hi = md - 1
+		}
 	}
-	return length/2 + 1
+	return lo
 }
+*/
+
+// finds the first leaf in the btree (lexicographically)
+
+/*
+func findFirstLeaf(root *node) *node {
+	if root == nil {
+		return root
+	}
+	c := root
+	for !c.leaf {
+		c = (*node)(unsafe.Pointer(c.ptrs[0]))
+	}
+	return c
+}
+*/
+
+// first insertion, start a new btree
+
+/*
+func startNewbtree(key []byte, blk *block) *node {
+	root := newLeaf()
+	root.keys[0] = key
+	root.ptrs[0] = unsafe.Pointer(blk)
+	root.ptrs[M-1] = nil
+	root.rent = nil
+	root.numk++
+	return root
+}
+*/

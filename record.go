@@ -1,9 +1,6 @@
 package godb
 
-import (
-	"bytes"
-	"fmt"
-)
+import "bytes"
 
 const (
 	maxKey = 24
@@ -37,18 +34,4 @@ func (r *record) val() []byte {
 		return r.data[maxKey:n]
 	}
 	return r.data[maxKey:]
-}
-
-// do verify by doing bounds check
-func verify(key, val []byte) error {
-	// key bounds check
-	if len(key) > maxKey {
-		return fmt.Errorf("record[verify]: key exceeds maximum key length of %d bytes, by %d bytes\n", maxKey, len(key)-maxKey)
-	}
-	// val bounds check
-	if len(val) > maxVal {
-		return fmt.Errorf("record[verify]: val exceeds maximum val length of %d bytes, by %d bytes\n", maxVal, len(val)-maxVal)
-	}
-	// passed bounds check, no errors so return nil
-	return nil
 }

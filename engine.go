@@ -32,45 +32,47 @@ type engine struct {
 	data mmap
 }
 
-func (e *engine) open(path string) error {
+func (e *engine) open(path string) (bool, error) {
 	// check to make sure engine is not already open
 	if e.file != nil {
 		// return an error if it is
-		return fmt.Errorf("engine[open]: engine is already open at path %q\n", path)
+		return true, fmt.Errorf("engine[open]: engine is already open at path %q\n", path)
 	}
 	_, err := os.Stat(path + `.db`)
+	var fdstat bool
 	// new instance
 	if err != nil && !os.IsExist(err) {
+		fdstat = true
 		dirs, _ := filepath.Split(path)
 		err := os.MkdirAll(dirs, 0755)
 		if err != nil {
-			return err
+			return fdstat, err
 		}
 		fd, err := os.Create(path + `.db`)
 		if err != nil {
-			return err
+			return fdstat, err
 		}
 		if err := fd.Truncate(int64(slab)); err != nil {
-			return err
+			return fdstat, err
 		}
 		if err := fd.Close(); err != nil {
-			return err
+			return fdstat, err
 		}
 	}
 	// existing
 	fd, err := os.OpenFile(path+`.db`, os.O_RDWR|os.O_APPEND, 0666)
 	if err != nil {
-		return err
+		return fdstat, err
 	}
 	info, err := fd.Stat()
 	if err != nil {
-		return err
+		return fdstat, err
 	}
 	// map file into virtual address space and set up engine
 	e.file = fd
 	e.data = Mmap(fd, 0, int(info.Size()))
 	// there were no errors, so return mapped size and a nil error
-	return nil
+	return fdstat, nil
 }
 
 // add a new record to the engine at the first available slot
@@ -213,4 +215,29 @@ func (e *engine) close() error {
 	e.file = nil // set file descriptor to nil
 	// there were no errors, so return nil
 	return nil
+}
+
+// temp structure
+type loader struct {
+	key []byte
+	pos int
+}
+
+// get all of the record key's from the engine (not nessicarily in order)
+func (e *engine) loadAllRecords() <-chan *loader {
+	// initialize the channels to return the keys and blocks on
+	ldr := make(chan *loader)
+	go func() {
+		var o, k int
+		// start iterating through mapped file reigon one page at a time
+		for o = k * page; o < len(e.data); k++ {
+			// checking for non-empty page
+			if e.data[o] != 0x00 {
+				// found one; return key and block offset
+				ldr <- &loader{e.data[o : o+maxKey], o / page}
+			}
+		}
+		close(ldr)
+	}()
+	return ldr
 }
