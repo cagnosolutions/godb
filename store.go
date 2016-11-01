@@ -7,14 +7,21 @@ import (
 )
 
 type store struct {
-	buf *bytes.Buffer
-	sync.RWMutex
+    idx *btree
+    buf *bytes.Buffer
+    sync.RWMutex
 }
 
-func Newstore() *store {
-	return &store{
+func Newstore(path string) (*store, error) {
+    s := &store{
 		buf: bytes.NewBuffer(make([]byte, 24, 24)),
 	}
+	idx, err := NewBTree(path);
+	if err != nil {
+	    return nil, err
+	}
+	s.idx = idx
+	return s, nil
 }
 
 func (s *store) genKey(k interface{}) ([]byte, error) {

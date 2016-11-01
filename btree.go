@@ -35,15 +35,15 @@ type btree struct {
 // creates a new btree instance and returns it if
 // there are no errors encountered while opening
 // the mmap'd file (engine) backing the tree on disk.
-func NewBTree(path string) *btree {
+func NewBTree(path string) (*btree, error) {
 	tree := new(btree)
 	tree.root = newLeaf()
 	tree.root.ptrs[M-1] = nil
 	tree.root.rent = nil
 	if err := tree.ngin.open(path); err != nil {
-		panic(err)
+        return nil, fmt.Errorf("%s", err)
 	}
-	return tree
+	return tree, nil
 }
 
 // Has returns a boolean indicating weather or not the
