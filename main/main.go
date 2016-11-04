@@ -16,25 +16,25 @@ const (
 
 // user struct
 type User struct {
-	Id        int64   `json:id`
-	Role      string  `json:role`
-	Email     string  `json:email,omitempty`
-	Password  string  `json:password,omitempty`
-	FirstName string  `json:firstName,omitempty`
-	LastName  string  `json:lastName,omitempty`
-	Active    bool    `json:active`
-	Age       int     `json:age,omitempty`
-	Modified  int64   `json:modified,omitempty`
-	Billing   Address `json:billing,omitempty`
+	Id        int64   `json:"id"`
+	Role      string  `json:"role"`
+	Email     string  `json:"email,omitempty"`
+	Password  string  `json:"password,omitempty"`
+	FirstName string  `json:"firstName,omitempty"`
+	LastName  string  `json:"lastName,omitempty"`
+	Active    bool    `json:"active"`
+	Age       int     `json:"age,omitempty"`
+	Modified  int64   `json:"modified,omitempty"`
+	Billing   Address `json:"billing,omitempty"`
 }
 
 // address struct
 type Address struct {
-	Id     int64  `json:id`
-	Street string `json:street,omitempty`
-	City   string `json:city,omitempty`
-	State  string `json:state,omitempty`
-	Zip    int    `json:zip,omitempty`
+	Id     int64  `json:"id"`
+	Street string `json:"street,omitempty"`
+	City   string `json:"city,omitempty"`
+	State  string `json:"state,omitempty"`
+	Zip    int    `json:"zip,omitempty"`
 }
 
 // simple orm-ish util to create a new user instance
@@ -86,7 +86,7 @@ func main() {
 
 	// open a users store
 	log.Printf("Opening users store...\n")
-	usr, err := godb.OpenStore("users")
+	usr, err := godb.OpenStore("./users")
 	if err != nil {
 		panic(err)
 	}
@@ -102,10 +102,24 @@ func main() {
 	// see how many users are currently in the store
 	log.Printf("Store currently contains %d entries...\n\n", usr.Count())
 
+	// close store; to see if it flushes the data to disk..
+	//if err := usr.Close(); err != nil {
+	//	panic(err)
+	//}
+
+	//return
+
+	// reopen store to get users
+	//log.Printf("Opening users store...\n")
+	//usr, err = godb.OpenStore("./users")
+	//if err != nil {
+	//	panic(err)
+	//}
+
 	// get users from store
 	log.Printf("Getting users from store...\n")
 	for _, u := range data {
-		var dat *User
+		var dat User
 		if err := usr.Get(u.Id, &dat); err != nil {
 			panic(err)
 		}

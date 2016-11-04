@@ -368,9 +368,9 @@ func (t *btree) get(key []byte) ([]byte, error) {
 	if _, blk := t.find(key); blk != nil {
 		val, err := t.ngin.getRecordVal(blk.pos)
 		if err != nil {
-			return val, nil
+			return nil, fmt.Errorf("btree[get]: failed to get record from engine -> %s", err)
 		}
-		return nil, fmt.Errorf("btree[get]: failed to get record from engine -> %s", err)
+		return val, nil
 	}
 	return nil, fmt.Errorf("btree[get]: failed to get block from leaf\n")
 }

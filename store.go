@@ -15,14 +15,16 @@ type store struct {
 }
 
 func OpenStore(path string) (*store, error) {
-	idx := new(btree)
+	idx := &btree{ngin: new(engine)}
 	if err := idx.open(path); err != nil {
 		return nil, err
 	}
-	return &store{
+	st := &store{
 		idx: idx,
 		buf: bytes.NewBuffer(make([]byte, maxKey, maxKey)),
-	}, nil
+	}
+	st.buf.Reset()
+	return st, nil
 }
 
 func (s *store) Add(key, val interface{}) error {
@@ -76,6 +78,7 @@ func (s *store) Get(key, ptr interface{}) error {
 	if err != nil {
 		return fmt.Errorf("store[get]: error while getting value from index -> %q", err)
 	}
+	fmt.Printf("###############--> %s\n", v)
 	if err := json.Unmarshal(v, ptr); err != nil {
 		return fmt.Errorf("store[get]: error while attempting to un-marshal -> %q", err)
 	}
@@ -102,6 +105,8 @@ func (s *store) Count() int {
 }
 
 func (s *store) Close() error {
+	s.Lock()
+	defer s.Unlock()
 	return s.idx.close()
 }
 
@@ -128,18 +133,15 @@ func (s *store) genKey(k interface{}) ([]byte, error) {
 	case uint:
 		k = uint64(k.(uint))
 	}
-	s.Lock()
 	if err := binary.Write(s.buf, binary.BigEndian, k); err != nil {
 		s.buf.Reset()
-		s.Unlock()
 		return nil, err
 	}
-	var key []byte
-	if s.buf.Len() > 24 {
-		s.buf.Truncate(24)
+	key := make([]byte, maxKey, maxKey)
+	if s.buf.Len() > maxKey {
+		s.buf.Truncate(maxKey)
 	}
-	copy(key[24-s.buf.Len():], s.buf.Bytes())
+	copy(key[maxKey-s.buf.Len():], s.buf.Bytes())
 	s.buf.Reset()
-	s.Unlock()
 	return key, nil
 }

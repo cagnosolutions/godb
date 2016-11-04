@@ -81,14 +81,17 @@ func (e *engine) addRecord(r *record) (int, error) {
 	// initialize block position k at beginning of mapped file, as well as future byte offset
 	var k, o int
 	// start iterating through mapped file reigon one page at a time
-	for o = k * page; o < len(e.data); k++ {
+	for o < len(e.data) {
 		// checking for empty page
-		if e.data[o] == 0x00 {
+		if e.data[o+maxKey-1] == 0x00 {
 			// found an empty page, re-use it; copy data into it
 			copy(e.data[o:o+page], r.data)
 			// return location of block in page offset
 			return o / page, nil
 		}
+		// go to next page offset
+		k++
+		o = k * page
 	}
 	// haven't found any empty pages, so let's grow the file
 	if err := e.grow(); err != nil {
@@ -131,7 +134,7 @@ func (e *engine) getRecord(k int) (*record, error) {
 	// create record to return
 	r := &record{}
 	// fill out record data if not empty, returning no error
-	if n := bytes.IndexByte(e.data[o:o+page], 0x00); n > 0 {
+	if n := bytes.IndexByte(e.data[o+maxKey-1:o+page], 0x00); n > 0 {
 		r.data = e.data[o:n]
 		return r, nil
 	}
@@ -147,10 +150,8 @@ func (e *engine) getRecordKey(k int) ([]byte, error) {
 		// ...return an error
 		return nil, fmt.Errorf("engine[getKey]: cannot return key at block %d (offset %d)\n", k, o)
 	}
-
-	// fill out record data if not empty, returning no error
-	if n := bytes.IndexByte(e.data[o:o+maxKey], 0x00); n > 0 {
-		return e.data[o:n], nil
+	if e.data[o+maxKey-1] != 0x00 {
+		return e.data[o : o+maxKey], nil
 	}
 	// otherwise, return empty record, with an error
 	return nil, fmt.Errorf("engine[getKey]: empty key found at block %d (offset %d)", k, o)
@@ -164,7 +165,6 @@ func (e *engine) getRecordVal(k int) ([]byte, error) {
 		// ...return an error
 		return nil, fmt.Errorf("engine[getVal]: cannot return val at block %d (offset %d)\n", k, o)
 	}
-
 	// fill out record data if not empty, returning no error
 	if n := bytes.IndexByte(e.data[o+maxKey:o+page], 0x00); n > 0 {
 		return e.data[o+maxKey : n], nil
