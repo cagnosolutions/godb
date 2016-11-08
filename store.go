@@ -78,7 +78,6 @@ func (s *store) Get(key, ptr interface{}) error {
 	if err != nil {
 		return fmt.Errorf("store[get]: error while getting value from index -> %q", err)
 	}
-	fmt.Printf("###############--> %s\n", v)
 	if err := json.Unmarshal(v, ptr); err != nil {
 		return fmt.Errorf("store[get]: error while attempting to un-marshal -> %q", err)
 	}
