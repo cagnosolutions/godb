@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -10,7 +9,7 @@ import (
 )
 
 const (
-	COUNT = 1000
+	COUNT = 50000
 	DEBUG = false
 )
 
@@ -117,24 +116,21 @@ func main() {
 	//}
 
 	// get users from store
-	log.Printf("Getting users from store...\n")
-	for _, u := range data {
-		var dat User
-		if err := usr.Get(u.Id, &dat); err != nil {
-			panic(err)
-		}
-		if DEBUG {
-			fmt.Printf("Successfully got user: %+v\n", dat)
-		}
-	}
+	//log.Printf("Getting users from store...\n")
+	//for _, u := range data {
+	//	var dat User
+	//	if err := usr.Get(u.Id, &dat); err != nil {
+	//		panic(err)
+	//	}
+	//}
 
 	// del users from store
-	log.Printf("Deleting users from store...\n")
-	for _, u := range data {
-		if err := usr.Del(u.Id); err != nil {
-			panic(err)
-		}
-	}
+	//log.Printf("Deleting users from store...\n")
+	//for _, u := range data {
+	//	if err := usr.Del(u.Id); err != nil {
+	//		panic(err)
+	//	}
+	//}
 
 	// see how many users are currently in the store
 	log.Printf("Store currently contains %d entries...\n\n", usr.Count())

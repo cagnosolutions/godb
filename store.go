@@ -97,6 +97,10 @@ func (s *store) Del(key interface{}) error {
 	return nil
 }
 
+func (s *store) Qry(fn func() bool, v ...interface{}) {
+
+}
+
 func (s *store) Count() int {
 	s.RLock()
 	defer s.RUnlock()
