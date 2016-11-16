@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	COUNT = 50000
+	COUNT = 1024
 	DEBUG = false
 )
 
@@ -40,7 +40,7 @@ type Address struct {
 func NewUser(i int) *User {
 	n, p := strconv.Itoa(i), strconv.Itoa(i*i)
 	return &User{
-		Id: time.Now().UnixNano(),
+		Id: int64(i),
 		Role: func() string {
 			if i%2 == 0 {
 				return "ROLE_ADMIN"
@@ -76,10 +76,10 @@ func NewAddress(i, ii int) *Address {
 
 func main() {
 
-	// generate user data
+	/*// generate user data
 	log.Printf("Generating user data...\n")
 	var data []*User
-	for i := 0; i < COUNT; i++ {
+	for i := 1; i <= COUNT; i++ {
 		data = append(data, NewUser(i))
 	}
 
@@ -96,10 +96,10 @@ func main() {
 		if err := usr.Add(u.Id, u); err != nil {
 			panic(err)
 		}
-	}
+	}*/
 
 	// see how many users are currently in the store
-	log.Printf("Store currently contains %d entries...\n\n", usr.Count())
+	// log.Printf("Store currently contains %d entries...\n\n", usr.Count())
 
 	// close store; to see if it flushes the data to disk..
 	//if err := usr.Close(); err != nil {
@@ -109,20 +109,28 @@ func main() {
 	//return
 
 	// reopen store to get users
-	//log.Printf("Opening users store...\n")
-	//usr, err = godb.OpenStore("./users")
-	//if err != nil {
-	//	panic(err)
-	//}
+	log.Printf("Opening users store...\n")
+	usr, err := godb.OpenStore("./users")
+	if err != nil {
+		panic(err)
+	}
+
+	for i := 1; i <= COUNT; i++ {
+		var dat User
+		if err := usr.Get(i, &dat); err != nil {
+			log.Printf("Failed to get record %d\n", i)
+			panic(err)
+		}
+	}
 
 	// get users from store
-	//log.Printf("Getting users from store...\n")
-	//for _, u := range data {
-	//	var dat User
-	//	if err := usr.Get(u.Id, &dat); err != nil {
-	//		panic(err)
-	//	}
-	//}
+	/*log.Printf("Getting users from store...\n")
+	for _, u := range data {
+		var dat User
+		if err := usr.Get(u.Id, &dat); err != nil {
+			panic(err)
+		}
+	}*/
 
 	// del users from store
 	//log.Printf("Deleting users from store...\n")

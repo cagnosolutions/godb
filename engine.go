@@ -83,7 +83,8 @@ func (e *engine) addRecord(r *record) (int, error) {
 	// start iterating through mapped file reigon one page at a time
 	for o < len(e.data) {
 		// checking for empty page
-		if e.data[o+maxKey-1] == 0x00 {
+		if bytes.Equal(e.data[o:o+page], empty) {
+			// if e.data[o+maxKey-1] == 0x00 {
 			// found an empty page, re-use it; copy data into it
 			copy(e.data[o:o+page], r.data)
 			// return location of block in page offset
@@ -150,7 +151,8 @@ func (e *engine) getRecordKey(k int) ([]byte, error) {
 		// ...return an error
 		return nil, fmt.Errorf("engine[getKey]: cannot return key at block %d (offset %d)\n", k, o)
 	}
-	if e.data[o+maxKey-1] != 0x00 {
+	if !bytes.Equal(e.data[o:o+page], empty) {
+		// if e.data[o+maxKey-1] != 0x00 {
 		return e.data[o : o+maxKey], nil
 	}
 	// otherwise, return empty record, with an error
@@ -161,14 +163,13 @@ func (e *engine) getRecordVal(k int) ([]byte, error) {
 	// get byte offset from block position k
 	o := k * page
 	// do a bounds check; if outside of mapped reigon...
-	if o+page >= len(e.data) {
+	if o+page > len(e.data) {
 		// ...return an error
 		return nil, fmt.Errorf("engine[getVal]: cannot return val at block %d (offset %d)\n", k, o)
 	}
 	// fill out record data if not empty, returning no error
 	if n := bytes.IndexByte(e.data[o+maxKey:o+page], 0x00); n > 0 {
 		v := e.data[o+maxKey : o+maxKey+n]
-		fmt.Printf("store[getRecordVal]: (n=%d), %s\n", n, v)
 		return v, nil
 	}
 	// otherwise, return empty record, with an error
@@ -232,12 +233,15 @@ func (e *engine) loadAllRecords() <-chan *loader {
 	go func() {
 		var o, k int
 		// start iterating through mapped file reigon one page at a time
-		for o = k * page; o < len(e.data); k++ {
+		for o < len(e.data) {
 			// checking for non-empty page
-			if e.data[o] != 0x00 {
+			if !bytes.Equal(e.data[o:o+page], empty) {
+				// if e.data[o+maxKey-1] != 0x00 {
 				// found one; return key and block offset
 				ldr <- &loader{e.data[o : o+maxKey], o / page}
 			}
+			k++
+			o = k * page
 		}
 		close(ldr)
 	}()

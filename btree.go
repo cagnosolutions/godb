@@ -41,6 +41,8 @@ func (t *btree) open(path string) error {
 	// reconstruct index if a mapped file already exists
 	if !isnew {
 		for ldr := range t.ngin.loadAllRecords() {
+			// for i := 0; i <
+			fmt.Printf("loading record, %v, %v\n", ldr.key, ldr.pos)
 			if err := t.load(ldr.key, ldr.pos); err != nil {
 				return fmt.Errorf("btree...loading: error while reconstructing: %q", err)
 			}
