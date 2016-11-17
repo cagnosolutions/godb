@@ -43,3 +43,18 @@ func (n *node) hasKey(k []byte) int {
 	}
 	return -1
 }
+
+func (n *node) next() (*node, error) {
+    // if node has neighbor, visit...
+    if n.ptrs[0] != nil {
+        return (*node)(unsafe.Pointer(n.ptrs[0])), nil
+    }
+    return nil, fmt.Errorf("btree.node[next]: EOF\n")
+}
+
+func (n *node) getBlock(i int) (*block, error) {
+    if i >= n.numk {
+        return nil, fmt.Errorf("btree.node[getBlock]: index out of bounds\n")
+    }
+    return (*block)(unsafe.Pointer(leaf.ptrs[i])), nil
+}

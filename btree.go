@@ -762,19 +762,58 @@ func search(n *node, key []byte) int {
 
 // finds the first leaf in the btree (lexicographically)
 
-/*
-func findFirstLeaf(root *node) *node {
-	if root == nil {
-		return root
+
+func (t *btree) findFirstLeaf() *node {
+	if t.root == nil {
+		return t.root
 	}
-	c := root
+	c := t.root
 	for !c.leaf {
 		c = (*node)(unsafe.Pointer(c.ptrs[0]))
 	}
 	return c
 }
-*/
 
+func (t *btree) next() (<-chan []byte) {
+	    n := t.findFirstLeaf()
+	    v := make(chan []byte)
+	    go func() {
+	        if n == nil {
+	            v <- nil
+	            close(v)
+	            return v
+	        }
+	        for {
+	            for blk, err := range n.getBlock() {
+	                if err  != nil {
+	                    v <- nil
+	                }
+	                val, err := t.ngin.getRecordVal(blk.pos)
+	                if err != nil {
+	                    v <- nil
+	                }
+	                v <- val
+	            }
+	            n, err := range n.next()
+	            if err != nil {
+	                break
+	            }
+	        }
+	        close(v)
+	    }()
+	    return v
+}
+
+func (t *btree) get(key []byte) ([]byte, error) {
+	if _, blk := t.find(key); blk != nil {
+		val, err := t.ngin.getRecordVal(blk.pos)
+		if err != nil {
+			return nil, fmt.Errorf("btree[get]: failed to get record from engine -> %s", err)
+		}
+		return val, nil
+	}
+	return nil, fmt.Errorf("btree[get]: failed to get block from leaf\n")
+}
 // first insertion, start a new btree
 
 /*
