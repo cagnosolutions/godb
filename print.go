@@ -91,7 +91,7 @@ func print_leaves(root *node) {
 				fmt.Printf("___, ")
 				continue
 			} else {
-				fmt.Printf("%s ", r.val)
+				fmt.Printf("%s ", r.val())
 			}
 		}
 		if c.ptrs[M-1] != nil {
