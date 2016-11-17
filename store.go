@@ -97,23 +97,23 @@ func (s *store) Del(key interface{}) error {
 	return nil
 }
 
-func (s *store) Qry(model json.Unmarshaler) (<-chan json.Unmarshaler) {
-    s.RLock()
-    defer s.RUnlock()
-    m := make(chan json.Unmarshaler)
-    go func() {
-        for val := range s.idx.next() {
-            if val == nil {
-                break
-            }
-            err := model.UnmarshalJSON(val)
-            if err == nil {
-                m <- model
-            }
-        }
-        close(m)
-    }
-    return m
+func (s *store) Qry(model json.Unmarshaler) <-chan json.Unmarshaler {
+	s.RLock()
+	defer s.RUnlock()
+	m := make(chan json.Unmarshaler)
+	go func() {
+		for val := range s.idx.next() {
+			if val == nil {
+				break
+			}
+			err := model.UnmarshalJSON(val)
+			if err == nil {
+				m <- model
+			}
+		}
+		close(m)
+	}()
+	return m
 }
 
 func (s *store) Count() int {
