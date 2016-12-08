@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+
+	"github.com/cagnosolutions/msgpack"
 )
 
 type store struct {
@@ -34,7 +36,8 @@ func (s *store) Add(key, val interface{}) error {
 	if err != nil {
 		return fmt.Errorf("store[add]: error while generating key -> %q", err)
 	}
-	v, err := json.Marshal(val)
+	//v, err := json.Marshal(val)
+	v, err := msgpack.Marshal(val)
 	if err != nil {
 		return fmt.Errorf("store[add]: error while attempting to marshal -> %q", err)
 	}
@@ -54,7 +57,8 @@ func (s *store) Set(key, val interface{}) error {
 	if err != nil {
 		return fmt.Errorf("store[set]: error while generating key -> %q", err)
 	}
-	v, err := json.Marshal(val)
+	//v, err := json.Marshal(val)
+	v, err := msgpack.Marshal(val)
 	if err != nil {
 		return fmt.Errorf("store[set]: error while attempting to marshal -> %q", err)
 	}
@@ -78,7 +82,8 @@ func (s *store) Get(key, ptr interface{}) error {
 	if err != nil {
 		return fmt.Errorf("store[get]: error while getting value from index -> %q", err)
 	}
-	if err := json.Unmarshal(v, ptr); err != nil {
+	//if err := json.Unmarshal(v, ptr); err != nil {
+	if err := msgpack.Unmarshal(v, ptr); err != nil {
 		return fmt.Errorf("store[get]: error while attempting to un-marshal -> %q", err)
 	}
 	return nil
@@ -140,6 +145,19 @@ func verify(key, val []byte) error {
 	}
 	// passed bounds check, no errors so return nil
 	return nil
+}
+
+func (s *store) genKeyMsgpack(k interface{}) ([]byte, error) {
+	b, err := msgpack.Marshal(k)
+	if err != nil {
+		return nil, err
+	}
+	if len(b) > maxKey {
+		b = b[:maxKey] // truncate to len of maxKey
+		return b, nil
+	}
+	b = append(make([]byte, maxKey-len(b)), b...)
+	return b, nil
 }
 
 func (s *store) genKey(k interface{}) ([]byte, error) {
