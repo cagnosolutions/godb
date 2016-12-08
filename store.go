@@ -3,11 +3,10 @@ package godb
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"sync"
 
-	"github.com/cagnosolutions/msgpack"
+	"github.com/cagnosolutions/godb/msgpack"
 )
 
 type store struct {
@@ -102,23 +101,35 @@ func (s *store) Del(key interface{}) error {
 	return nil
 }
 
-func (s *store) Qry(model json.Unmarshaler) <-chan json.Unmarshaler {
+func (s *store) Query(qry string, ptr interface{}) error {
+	return nil
+}
+
+func (s *store) qry(q string) <-chan []byte {
 	s.RLock()
 	defer s.RUnlock()
-	m := make(chan json.Unmarshaler)
+	ch := make(chan []byte)
+	// b := bytes.NewBuffer(make([]byte, page))
+
+	var d *msgpack.Decoder
 	go func() {
 		for val := range s.idx.next() {
 			if val == nil {
 				break
 			}
-			err := model.UnmarshalJSON(val)
-			if err == nil {
-				m <- model
+			d = msgpack.NewDecoder(bytes.NewBuffer(val))
+			ok, err := d.Query(q)
+			if err != nil {
+				// display/return error
+				ch <- []byte(err.Error())
+			}
+			if ok {
+				ch <- val
 			}
 		}
-		close(m)
+		close(ch)
 	}()
-	return m
+	return ch
 }
 
 func (s *store) Count() int {
