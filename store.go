@@ -102,6 +102,23 @@ func (s *store) Del(key interface{}) error {
 	return nil
 }
 
+func (s *store) QueryOne(qry string, ptr interface{}) error {
+	s.RLock()
+	defer s.RUnlock()
+	qrys := strings.Split(qry, "&&")
+	var vals [][]byte
+	for _, q := range qrys {
+		vals = append(vals, <-s.qry(q))
+	}
+	if len(vals) != 1 {
+		return fmt.Errorf("error: query returned more or less than one result (%d)\n", len(vals))
+	}
+	if err := msgpack.Unmarshal(vals[0], ptr); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *store) Query(qry string, ptr interface{}) error {
 	s.RLock()
 	defer s.RUnlock()
