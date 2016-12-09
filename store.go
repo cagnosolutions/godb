@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/cagnosolutions/godb/msgpack"
@@ -102,25 +103,43 @@ func (s *store) Del(key interface{}) error {
 }
 
 func (s *store) Query(qry string, ptr interface{}) error {
+	s.RLock()
+	defer s.RUnlock()
+	qrys := strings.Split(qry, "&&")
+	var vals [][]byte
+	for _, q := range qrys {
+		vals = append(vals, <-s.qry(q))
+	}
+	res := make([]interface{}, len(vals))
+	for n, v := range vals {
+		if err := msgpack.Unmarshal(v, res[n]); err != nil {
+			return err
+		}
+	}
+	b, err := msgpack.Marshal(res)
+	if err != nil {
+		return err
+	}
+	if err := msgpack.Unmarshal(b, ptr); err != nil {
+		return err
+	}
 	return nil
 }
 
+// *NO LOCKS!
 func (s *store) qry(q string) <-chan []byte {
-	s.RLock()
-	defer s.RUnlock()
+	var dec *msgpack.Decoder
+	var buf *bytes.Buffer
 	ch := make(chan []byte)
-	// b := bytes.NewBuffer(make([]byte, page))
-
-	var d *msgpack.Decoder
 	go func() {
 		for val := range s.idx.next() {
 			if val == nil {
 				break
 			}
-			d = msgpack.NewDecoder(bytes.NewBuffer(val))
-			ok, err := d.Query(q)
+			buf = bytes.NewBuffer(val)
+			dec = msgpack.NewDecoder(buf)
+			ok, err := dec.Query(q)
 			if err != nil {
-				// display/return error
 				ch <- []byte(err.Error())
 			}
 			if ok {
