@@ -10,13 +10,54 @@ import (
 	"github.com/cagnosolutions/godb/msgpack"
 )
 
+type Store struct {
+	store
+}
+
+func OpenStore(path string) (*Store, error) {
+	s, err := openStore(path)
+	return &Store{store: *s}, err
+}
+
+func (s *Store) Add(key, val interface{}) error {
+	return s.store.Add(key, val)
+}
+
+func (s *Store) Set(key, val interface{}) error {
+	return s.store.Set(key, val)
+}
+
+func (s *Store) Get(key, ptr interface{}) error {
+	return s.store.Get(key, ptr)
+}
+
+func (s *Store) Del(key interface{}) error {
+	return s.store.Del(key)
+}
+
+func (s *Store) QueryOne(qry string, ptr interface{}) error {
+	return s.store.QueryOne(qry, ptr)
+}
+
+func (s *Store) Query(qry string, ptr interface{}) error {
+	return s.store.Query(qry, ptr)
+}
+
+func (s *Store) Count() int {
+	return s.store.Count()
+}
+
+func (s *Store) Close() error {
+	return s.store.Close()
+}
+
 type store struct {
 	idx *btree
 	buf *bytes.Buffer
 	sync.RWMutex
 }
 
-func OpenStore(path string) (*store, error) {
+func openStore(path string) (*store, error) {
 	idx := &btree{ngin: new(engine)}
 	if err := idx.open(path); err != nil {
 		return nil, err
