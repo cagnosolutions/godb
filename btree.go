@@ -3,6 +3,8 @@ package godb
 import (
 	"bytes"
 	"fmt"
+	"log"
+	"reflect"
 	"unsafe"
 )
 
@@ -42,7 +44,7 @@ func (t *btree) open(path string) error {
 	if !isnew {
 		for ldr := range t.ngin.loadAllRecords() {
 			// for i := 0; i <
-			fmt.Printf("loading record, %v, %v\n", ldr.key, ldr.pos)
+			//fmt.Printf("loading record, %v, %v\n", ldr.key, ldr.pos)
 			if err := t.load(ldr.key, ldr.pos); err != nil {
 				return fmt.Errorf("btree...loading: error while reconstructing: %q", err)
 			}
@@ -427,21 +429,30 @@ func (t *btree) del(key []byte) error {
 	// t.find returns *node (leaf node), and a *block
 	// otherwise it will simply return nil for both values
 	leaf, blk := t.find(key)
-	if leaf != nil && blk != nil {
-		// double check passed key, and OLD records key
-		rKey, err := t.ngin.getRecordKey(blk.pos)
-		if err != nil {
-			return fmt.Errorf("btree[del]: failed to get record from engine -> %s", err)
-		}
-		if bytes.Equal(rKey, key) {
-			if err := t.ngin.delRecord(blk.pos); err != nil {
-				return fmt.Errorf("btree[del]: failed to delete record from engine -> %s", err)
-			}
-			// remove from btree, rebalance, etc.
-			t.count-- // decrementing record count by one
-			t.root = deleteEntry(t.root, leaf, key, unsafe.Pointer(blk))
-		}
+	if leaf == nil {
+		return fmt.Errorf("btree[del]: failed to find leaf node")
 	}
+	if blk == nil {
+		return fmt.Errorf("btree[del]: failed to find block in leaf node")
+	}
+	// double check passed key, and OLD records key
+	rkey, err := t.ngin.getRecordKey(blk.pos)
+	if err != nil {
+		return fmt.Errorf("btree[del]: failed to get record from engine -> %s", err)
+	}
+	// ensure they match...
+	if !bytes.Equal(rkey, key) {
+		fmt.Printf("check key matches:\n\t%q\n%q\n", rkey, key)
+		return fmt.Errorf("btree[del]: key does not match record key on disk at same block position")
+	}
+	// so far, so good... attempt to delete record from the mapped engine
+	if err := t.ngin.delRecord(blk.pos); err != nil {
+		return fmt.Errorf("btree[del]: failed to delete record from engine -> %s", err)
+	}
+	// success!
+	// remove from btree, rebalance, etc.
+	t.count-- // decrementing record count by one
+	t.root = deleteEntry(t.root, leaf, key, unsafe.Pointer(blk))
 	return nil
 }
 
@@ -463,12 +474,13 @@ func getNeighborIndex(n *node) int {
 func removeEntryFromNode(n *node, key []byte, ptr unsafe.Pointer) *node {
 	var i, numPtrs int
 	// remove key and shift over keys accordingly
-	for !bytes.Equal(n.keys[i], key) {
+	for n.keys[i] != nil && !bytes.Equal(n.keys[i], key) {
 		i++
 	}
 	for i++; i < n.numk; i++ {
 		n.keys[i-1] = n.keys[i]
 	}
+
 	// remove ptr and shift other ptrs accordingly
 	// first determine the number of ptrs
 	if n.leaf {
@@ -476,14 +488,21 @@ func removeEntryFromNode(n *node, key []byte, ptr unsafe.Pointer) *node {
 	} else {
 		numPtrs = n.numk + 1
 	}
+
 	i = 0
-	for n.ptrs[i] != ptr {
+	for !reflect.DeepEqual((*uintptr)(unsafe.Pointer(n.ptrs[i])), (*uintptr)(unsafe.Pointer(ptr))) {
 		i++
 	}
+
+	//(*block)(unsafe.Pointer(n.ptrs[i])).pos
+	//for n.ptrs[i] != ptr {
+	//	i++
+	//}
 
 	for i++; i < numPtrs; i++ {
 		n.ptrs[i-1] = n.ptrs[i]
 	}
+
 	// one key has been removed
 	n.numk--
 	// set other ptrs to nil for tidiness; remember leaf
@@ -497,6 +516,7 @@ func removeEntryFromNode(n *node, key []byte, ptr unsafe.Pointer) *node {
 			n.ptrs[i] = nil
 		}
 	}
+
 	return n
 }
 
@@ -505,6 +525,9 @@ func deleteEntry(root, n *node, key []byte, ptr unsafe.Pointer) *node {
 	var primeIndex, capacity int
 	var neighbor *node
 	var prime []byte
+
+	//NOTE: REMOVE THIS WHEN DONE...
+	log.Printf("in [deleteEntry], about to run [removeEntryFromNode]\n")
 
 	// remove key, ptr from node
 	n = removeEntryFromNode(n, key, ptr)

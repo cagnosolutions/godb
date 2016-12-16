@@ -135,7 +135,9 @@ func (e *engine) getRecord(k int) (*record, error) {
 	// create record to return
 	r := &record{}
 	// fill out record data if not empty, returning no error
-	if n := bytes.IndexByte(e.data[o+maxKey-1:o+page], 0x00); n > 0 {
+	// NOTE: Had to change...
+	//if n := bytes.IndexByte(e.data[o+maxKey-1:o+page], eofVal); n > 0 {
+	if n := bytes.LastIndexByte(e.data[o+maxKey-1:o+page], eofVal); n > 0 {
 		r.data = e.data[o : o+n]
 		return r, nil
 	}
@@ -168,7 +170,9 @@ func (e *engine) getRecordVal(k int) ([]byte, error) {
 		return nil, fmt.Errorf("engine[getVal]: cannot return val at block %d (offset %d)\n", k, o)
 	}
 	// fill out record data if not empty, returning no error
-	if n := bytes.IndexByte(e.data[o+maxKey:o+page], 0x00); n > 0 {
+	// NOTE: Had to change...
+	//if n := bytes.IndexByte(e.data[o+maxKey:o+page], eofVal); n > 0 {
+	if n := bytes.LastIndexByte(e.data[o+maxKey:o+page], eofVal); n > 0 {
 		v := e.data[o+maxKey : o+maxKey+n]
 		return v, nil
 	}

@@ -158,11 +158,13 @@ func opn() {
 	}
 	//see how many users are currently in the store
 	log.Printf("(contains %d entries)\n\n", usr.Count())
+	time.Sleep(time.Duration(1) * time.Second)
 }
 
 func cls() {
 	// close store; to see if it flushes the data to disk..
 	log.Printf("Closing the store (contains %d entries)\n\n", usr.Count())
+	time.Sleep(time.Duration(1) * time.Second)
 	if err := usr.Close(); err != nil {
 		panic(err)
 	}

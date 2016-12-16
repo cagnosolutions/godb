@@ -5,6 +5,9 @@ var (
 	// nil
 	Nil byte = 0xc0
 
+	// NEVER USED
+	// UserDefined byte =0xc1
+
 	// boolean
 	False byte = 0xc2
 	True  byte = 0xc3
