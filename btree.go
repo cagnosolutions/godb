@@ -3,8 +3,6 @@ package godb
 import (
 	"bytes"
 	"fmt"
-	"log"
-	"reflect"
 	"unsafe"
 )
 
@@ -42,10 +40,8 @@ func (t *btree) open(path string) error {
 	}
 	// reconstruct index if a mapped file already exists
 	if !isnew {
-		for ldr := range t.ngin.loadAllRecords() {
-			// for i := 0; i <
-			//fmt.Printf("loading record, %v, %v\n", ldr.key, ldr.pos)
-			if err := t.load(ldr.key, ldr.pos); err != nil {
+		for payload := range t.ngin.loadAllRecords() {
+			if err := t.load(payload); err != nil {
 				return fmt.Errorf("btree...loading: error while reconstructing: %q", err)
 			}
 		}
@@ -57,15 +53,22 @@ func (t *btree) open(path string) error {
 // because we are already provided with the block offset
 // and the key via the getAllRecordKeysAndBlocks() method
 // supplied to us via the engine.
-func (t *btree) load(key []byte, pos int) error {
+func (t *btree) load(p payload) error {
+
+	// copy elements from memory mapped payload
+	// to new address space to be used. (so it
+	// doesn't screw with the memory mapping.)
+	key, blk := make([]byte, maxKey), new(block)
+	copy(key, p.key)
+	blk.pos = p.pos
+
 	// check if key already exists
 	leaf, _ := t.find(key)
 	if leaf == nil {
 		// returned empty leaf node
 		return fmt.Errorf("btree[load]: leaf node is nil\n")
 	}
-	// create block to insert
-	blk := &block{pos}
+
 	// if room in leaf insert
 	if leaf.numk < M-1 {
 		// inserting block into leaf (already added record to engine)
@@ -426,34 +429,51 @@ func findLeaf(root *node, key []byte) *node {
 
 // Del deletes a record by key
 func (t *btree) del(key []byte) error {
-	// t.find returns *node (leaf node), and a *block
-	// otherwise it will simply return nil for both values
 	leaf, blk := t.find(key)
-	if leaf == nil {
-		return fmt.Errorf("btree[del]: failed to find leaf node")
+	err := fmt.Errorf("btree[del]: failed to locate proper leaf or block (leaf: %+v, block: %+v)", leaf, blk)
+	if blk != nil && leaf != nil {
+		// delete record from engine
+		if err := t.ngin.delRecord(blk.pos); err != nil {
+			return fmt.Errorf("btree[del]: faied to delete record from engine -> %s", err)
+		}
+		// delete index block from tree
+		t.count--
+		t.root = deleteEntry(t.root, leaf, key, unsafe.Pointer(blk))
+		blk, err = nil, nil
 	}
-	if blk == nil {
-		return fmt.Errorf("btree[del]: failed to find block in leaf node")
-	}
-	// double check passed key, and OLD records key
-	rkey, err := t.ngin.getRecordKey(blk.pos)
-	if err != nil {
-		return fmt.Errorf("btree[del]: failed to get record from engine -> %s", err)
-	}
-	// ensure they match...
-	if !bytes.Equal(rkey, key) {
-		fmt.Printf("check key matches:\n\t%q\n%q\n", rkey, key)
-		return fmt.Errorf("btree[del]: key does not match record key on disk at same block position")
-	}
-	// so far, so good... attempt to delete record from the mapped engine
-	if err := t.ngin.delRecord(blk.pos); err != nil {
-		return fmt.Errorf("btree[del]: failed to delete record from engine -> %s", err)
-	}
-	// success!
-	// remove from btree, rebalance, etc.
-	t.count-- // decrementing record count by one
-	t.root = deleteEntry(t.root, leaf, key, unsafe.Pointer(blk))
-	return nil
+	return err
+	/*
+		// t.find returns *node (leaf node), and a *block
+		// otherwise it will simply return nil for both values
+		leaf, blk := t.find(key)
+
+		if leaf == nil {
+			return fmt.Errorf("btree[del]: failed to find leaf node")
+		}
+		if blk == nil {
+			return fmt.Errorf("btree[del]: failed to find block in leaf node")
+		}
+		// double check passed key, and OLD records key
+		A
+		rkey, err := t.ngin.getRecordKey(blk.pos)
+		if err != nil {
+			return fmt.Errorf("btree[del]: failed to get record from engine -> %s", err)
+		}
+		// ensure they match...
+		if !bytes.Equal(rkey, key) {
+			fmt.Printf("check key matches:\n\t%q\n%q\n", rkey, key)
+			return fmt.Errorf("btree[del]: key does not match record key on disk at same block position")
+		}
+		// so far, so good... attempt to delete record from the mapped engine
+		if err := t.ngin.delRecord(blk.pos); err != nil {
+			return fmt.Errorf("btree[del]: failed to delete record from engine -> %s", err)
+		}
+		// success!
+		// remove from btree, rebalance, etc.
+		t.count-- // decrementing record count by one
+		t.root = deleteEntry(t.root, leaf, key, unsafe.Pointer(blk))
+		return nil
+	*/
 }
 
 /*
@@ -490,14 +510,13 @@ func removeEntryFromNode(n *node, key []byte, ptr unsafe.Pointer) *node {
 	}
 
 	i = 0
-	for !reflect.DeepEqual((*uintptr)(unsafe.Pointer(n.ptrs[i])), (*uintptr)(unsafe.Pointer(ptr))) {
-		i++
-	}
-
-	//(*block)(unsafe.Pointer(n.ptrs[i])).pos
-	//for n.ptrs[i] != ptr {
+	//for !reflect.DeepEqual((*uintptr)(unsafe.Pointer(n.ptrs[i])), (*uintptr)(unsafe.Pointer(ptr))) {
 	//	i++
 	//}
+
+	for n.ptrs[i] != ptr {
+		i++
+	}
 
 	for i++; i < numPtrs; i++ {
 		n.ptrs[i-1] = n.ptrs[i]
@@ -522,45 +541,48 @@ func removeEntryFromNode(n *node, key []byte, ptr unsafe.Pointer) *node {
 
 // deletes an entry from the btree; removes record, key, and ptr from leaf and rebalances btree
 func deleteEntry(root, n *node, key []byte, ptr unsafe.Pointer) *node {
-	var primeIndex, capacity int
+
+	var primeIndex, minKeys, capacity int
 	var neighbor *node
 	var prime []byte
 
-	//NOTE: REMOVE THIS WHEN DONE...
-	log.Printf("in [deleteEntry], about to run [removeEntryFromNode]\n")
-
-	// remove key, ptr from node
+	// remove key and ptr from node
 	n = removeEntryFromNode(n, key, ptr)
 
+	// case: deletion from the root
 	if n == root {
 		return adjustRoot(root)
 	}
 
-	var minKeys int
-	// case: delete from inner node
+	// case: delete from node below root (rest of funtion body)
 	if n.leaf {
 		minKeys = cut(M - 1)
 	} else {
 		minKeys = cut(M) - 1
 	}
-	// case: node stays at or above min order
+
+	// case: node stays at or above minimum
 	if n.numk >= minKeys {
 		return root
 	}
 
-	// case: node is bellow min order; coalescence or redistribute
+	// case: node is below minimum order, a coalescence or redistribution is needed...
+
 	neighborIndex := getNeighborIndex(n)
 	if neighborIndex == -1 {
 		primeIndex = 0
 	} else {
 		primeIndex = neighborIndex
 	}
+
 	prime = n.rent.keys[primeIndex]
+
 	if neighborIndex == -1 {
 		neighbor = (*node)(unsafe.Pointer(n.rent.ptrs[1]))
 	} else {
 		neighbor = (*node)(unsafe.Pointer(n.rent.ptrs[neighborIndex]))
 	}
+
 	if n.leaf {
 		capacity = M
 	} else {
@@ -571,6 +593,8 @@ func deleteEntry(root, n *node, key []byte, ptr unsafe.Pointer) *node {
 	if neighbor.numk+n.numk < capacity {
 		return coalesceNodes(root, n, neighbor, neighborIndex, prime)
 	}
+
+	// redistrubution
 	return redistributeNodes(root, n, neighbor, neighborIndex, primeIndex, prime)
 }
 
@@ -723,6 +747,7 @@ func (t *btree) close() error {
 	if err := t.ngin.close(); err != nil {
 		return fmt.Errorf("btree[close]: error encountered while closing engine -> %s", err)
 	}
+	t.count = 0
 	return nil
 }
 

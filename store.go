@@ -51,6 +51,12 @@ func (s *Store) Close() error {
 	return s.store.Close()
 }
 
+func (s *Store) Sync() {
+	s.Lock()
+	defer s.Unlock()
+	s.store.idx.ngin.data.Sync()
+}
+
 type store struct {
 	idx *btree
 	buf *bytes.Buffer

@@ -110,7 +110,7 @@ func (e *engine) setRecord(k int, r *record) error {
 	// get byte offset from block position k
 	o := k * page
 	// do a bounds check; if outside of mapped reigon...
-	if o+page >= len(e.data) {
+	if o+page > len(e.data) {
 		// do not grow, return an error
 		return fmt.Errorf("engine[set]: cannot update record at block %d (offset %d)\n", k, o)
 	}
@@ -128,7 +128,7 @@ func (e *engine) getRecord(k int) (*record, error) {
 	// get byte offset from block position k
 	o := k * page
 	// do a bounds check; if outside of mapped reigon...
-	if o+page >= len(e.data) {
+	if o+page > len(e.data) {
 		// ...return an error
 		return nil, fmt.Errorf("engine[get]: cannot return record at block %d (offset %d)\n", k, o)
 	}
@@ -149,7 +149,7 @@ func (e *engine) getRecordKey(k int) ([]byte, error) {
 	// get byte offset from block position k
 	o := k * page
 	// do a bounds check; if outside of mapped reigon...
-	if o+page >= len(e.data) {
+	if o+page > len(e.data) {
 		// ...return an error
 		return nil, fmt.Errorf("engine[getKey]: cannot return key at block %d (offset %d)\n", k, o)
 	}
@@ -186,7 +186,7 @@ func (e *engine) delRecord(k int) error {
 	// get byte offset from block position k
 	o := k * page
 	// do a bounds check; if outside of mapped reigon...
-	if o+page >= len(e.data) {
+	if o+page > len(e.data) {
 		// ...return an error
 		return fmt.Errorf("engine[del]: cannot delete record at block %d (offset %d)\n", k, o)
 	}
@@ -225,29 +225,28 @@ func (e *engine) close() error {
 }
 
 // temp structure
-type loader struct {
+type payload struct {
 	key []byte
 	pos int
 }
 
 // get all of the record key's from the engine (not nessicarily in order)
-func (e *engine) loadAllRecords() <-chan *loader {
+func (e *engine) loadAllRecords() <-chan payload {
 	// initialize the channels to return the keys and blocks on
-	ldr := make(chan *loader)
+	loader := make(chan payload)
 	go func() {
 		var o, k int
 		// start iterating through mapped file reigon one page at a time
 		for o < len(e.data) {
 			// checking for non-empty page
 			if !bytes.Equal(e.data[o:o+page], empty) {
-				// if e.data[o+maxKey-1] != 0x00 {
 				// found one; return key and block offset
-				ldr <- &loader{e.data[o : o+maxKey], o / page}
+				loader <- payload{e.data[o : o+maxKey], (o / page)}
 			}
 			k++
 			o = k * page
 		}
-		close(ldr)
+		close(loader)
 	}()
-	return ldr
+	return loader
 }
