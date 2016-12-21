@@ -2,6 +2,8 @@ package godb
 
 import (
 	"bytes"
+	"encoding/binary"
+	"fmt"
 	"unsafe"
 )
 
@@ -20,6 +22,29 @@ type node struct {
 	ptrs [M]unsafe.Pointer
 	rent *node
 	leaf bool
+}
+
+func (n *node) String() string {
+	var s string
+	s = fmt.Sprintf("{\n\tnumk: %d\n\tleaf: %v\n\tkeys:\n\t\t", n.numk, n.leaf)
+	for _, k := range n.keys {
+		if k == nil {
+			s += "[ nil ] "
+		} else {
+			n := binary.BigEndian.Uint64(k[len(k)-8:])
+			s += fmt.Sprintf("[%.5d] ", n)
+		}
+	}
+	s += "\n\tptrs:\n\t\t"
+	for _, p := range n.ptrs {
+		if p == nil {
+			s += "< nil > "
+		} else {
+			blk := (*block)(unsafe.Pointer(p))
+			s += fmt.Sprintf("<%.5d> ", blk.pos)
+		}
+	}
+	return s + "\n}\n"
 }
 
 // create and return a new index node

@@ -170,6 +170,7 @@ func (s *store) Query(qry string, ptr interface{}) error {
 	s.RLock()
 	defer s.RUnlock()
 	qrys := strings.Split(qry, "&&")
+	fmt.Printf("Qrys:%v\n", qrys)
 	var vals [][]byte
 	for _, q := range qrys {
 		vals = append(vals, <-s.qry(q))
@@ -177,15 +178,16 @@ func (s *store) Query(qry string, ptr interface{}) error {
 	res := make([]interface{}, len(vals))
 	for n, v := range vals {
 		if err := msgpack.Unmarshal(v, res[n]); err != nil {
-			return err
+			fmt.Printf("Vals: %v\n len(vals): %d\n", vals, len(vals))
+			return fmt.Errorf("180: %v", err)
 		}
 	}
 	b, err := msgpack.Marshal(res)
 	if err != nil {
-		return err
+		return fmt.Errorf("185: %v", err)
 	}
 	if err := msgpack.Unmarshal(b, ptr); err != nil {
-		return err
+		return fmt.Errorf("188: %v", err)
 	}
 	return nil
 }
@@ -204,6 +206,7 @@ func (s *store) qry(q string) <-chan []byte {
 			dec = msgpack.NewDecoder(buf)
 			ok, err := dec.Query(q)
 			if err != nil {
+				fmt.Println("sending val over chan")
 				ch <- []byte(err.Error())
 			}
 			if ok {

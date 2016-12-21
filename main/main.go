@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"math/rand"
 	"strconv"
 	"time"
 
@@ -9,7 +11,7 @@ import (
 )
 
 const (
-	COUNT = 1024
+	COUNT = 24
 	DEBUG = false
 )
 
@@ -86,20 +88,21 @@ func main() {
 	 *	open/close store between each call
 	 */
 
-	add() // add users to store
+	// add() // add users to store
 
 	get() // get users from store
 
-	del() // del users from store
+	qry()
+	// del() // del users from store
 
 }
 
 func add() {
-
+	r := NewRandInt(COUNT)
 	// generate user data
 	log.Printf("Generating user data...\n")
-	for i := 1; i <= COUNT; i++ {
-		data = append(data, NewUser(i))
+	for i := 0; i < COUNT; i++ {
+		data = append(data, NewUser(r.Get()))
 	}
 
 	opn() // open store
@@ -117,12 +120,14 @@ func add() {
 
 func get() {
 
+	r := NewRandInt(COUNT)
+
 	opn() // open store
 
 	// panic if it could not get a user from the store
-	for i := 1; i <= COUNT; i++ {
+	for i := 0; i < COUNT; i++ {
 		var dat User
-		if err := usr.Get(i, &dat); err != nil {
+		if err := usr.Get(r.Get(), &dat); err != nil {
 			log.Printf("Failed to get record %d\n", i)
 			panic(err)
 		}
@@ -132,14 +137,30 @@ func get() {
 
 }
 
-func del() {
+func qry() {
 
+	opn() // open store
+
+	var users []User
+
+	if err := usr.Query(".role == ROLE_USER && .active == true", &users); err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("\nlen(users): %d, Users:%v\n", len(users), users)
+
+	cls() // close store
+
+}
+
+func del() {
+	r := NewRandInt(COUNT)
 	opn() // open store
 
 	// del users from store
 	log.Printf("Deleting users from store...\n")
-	for _, u := range data {
-		if err := usr.Del(u.Id); err != nil {
+	for i := 0; i < COUNT; i++ {
+		if err := usr.Del(r.Get()); err != nil {
 			panic(err)
 		}
 	}
@@ -168,4 +189,30 @@ func cls() {
 	if err := usr.Close(); err != nil {
 		panic(err)
 	}
+}
+
+type RandInt struct {
+	m map[int]bool
+	n int
+}
+
+func NewRandInt(n int) *RandInt {
+	return &RandInt{
+		m: make(map[int]bool, 0),
+		n: n,
+	}
+}
+
+func (r *RandInt) Get() int {
+	var n int
+	for {
+		n = rand.Intn(r.n)
+		if !r.m[n] {
+			r.m[n] = true
+			break
+		} else if len(r.m) == r.n {
+			panic("exceeded maximum size")
+		}
+	}
+	return n
 }

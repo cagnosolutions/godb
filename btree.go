@@ -494,7 +494,7 @@ func getNeighborIndex(n *node) int {
 func removeEntryFromNode(n *node, key []byte, ptr unsafe.Pointer) *node {
 	var i, numPtrs int
 	// remove key and shift over keys accordingly
-	for n.keys[i] != nil && !bytes.Equal(n.keys[i], key) {
+	for !bytes.Equal(n.keys[i], key) {
 		i++
 	}
 	for i++; i < n.numk; i++ {
