@@ -88,12 +88,13 @@ func main() {
 	 *	open/close store between each call
 	 */
 
-	// add() // add users to store
+	//add() // add users to store
 
-	get() // get users from store
+	//get() // get users from store
 
 	qry()
-	// del() // del users from store
+
+	//del() // del users from store
 
 }
 

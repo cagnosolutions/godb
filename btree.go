@@ -826,25 +826,26 @@ func (t *btree) next() <-chan []byte {
 	if n == nil {
 		return nil
 	}
-	v := make(chan []byte)
+	ch := make(chan []byte, 1)
 	go func() {
 		for {
 			for i := 0; i < n.numk; i++ {
 				if blk := n.getBlock(i); blk != nil {
 					val, err := t.ngin.getRecordVal(blk.pos)
 					if err != nil {
-						v <- nil
+						ch <- nil
 					}
-					v <- val
+					fmt.Printf("VAL: %#+v\n", val)
+					ch <- val
 				}
 			}
 			if n = n.next(); n == nil {
 				break
 			}
 		}
-		close(v)
+		close(ch)
 	}()
-	return v
+	return ch
 }
 
 // first insertion, start a new btree

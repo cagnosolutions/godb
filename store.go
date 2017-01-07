@@ -149,6 +149,7 @@ func (s *store) Del(key interface{}) error {
 	return nil
 }
 
+/*
 func (s *store) QueryOne(qry string, ptr interface{}) error {
 	s.RLock()
 	defer s.RUnlock()
@@ -165,7 +166,9 @@ func (s *store) QueryOne(qry string, ptr interface{}) error {
 	}
 	return nil
 }
+*/
 
+/*
 func (s *store) Query(qry string, ptr interface{}) error {
 	s.RLock()
 	defer s.RUnlock()
@@ -191,9 +194,94 @@ func (s *store) Query(qry string, ptr interface{}) error {
 	}
 	return nil
 }
+*/
+
+func (s *store) Q(qry string, ptr interface{}) error {
+	var dec *msgpack.Decoder
+	var buf *bytes.Buffer
+	qrys := strings.Split(qry, "&&")
+	for val := range s.idx.next() {
+		if val == nil {
+			continue
+		}
+		buf = bytes.NewBuffer(val)
+		dec = msgpack.NewDecoder(buf)
+		ok, err := match(dec, qrys)
+		if err != nil {
+			return err
+		}
+		if ok {
+			// do stuff
+		}
+	}
+	return nil
+}
+
+/*
+///
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+
+	u := []User{}
+	fmt.Printf("(%p) %v\n", u, u)
+	if err := doit(&u); err != nil {
+		fmt.Printf("got err: %s\n", err)
+	}
+	fmt.Printf("(%p) %v\n", u, u)
+
+	fmt.Println(u[2].Id, u[2].Active)
+}
+
+type User struct {
+	Id     int
+	Active bool
+}
+
+func doit(m interface{}) error {
+	typ := reflect.TypeOf(m)
+	if typ.Kind() != reflect.Ptr {
+		return fmt.Errorf("error: expected pointer to model\n")
+	}
+	typ = typ.Elem()
+	val := reflect.Indirect(reflect.ValueOf(m))
+	for i := 0; i < 5; i++ {
+		zro := reflect.Indirect(reflect.New(typ.Elem()))
+
+		// simulate marshal data into zro
+		zro.FieldByName("Id").SetInt(int64(i))
+		zro.FieldByName("Active").SetBool(i%2 == 0)
+
+		// then append
+		val.Set(reflect.Append(val, zro))
+	}
+	return nil
+
+}
+///
+*/
+
+func match(dec *msgpack.Decoder, qrys []string) (bool, error) {
+	for _, qry := range qrys {
+		ok, err := dec.Query(qry)
+		if err != nil {
+			return false, err
+		}
+		if !ok {
+			return false, nil
+		}
+	}
+	return true, nil
+}
 
 // *NO LOCKS!
-func (s *store) qry(q string) <-chan []byte {
+/*
+func (s *store) _qry(q string) <-chan []byte {
 	var dec *msgpack.Decoder
 	var buf *bytes.Buffer
 	ch := make(chan []byte)
@@ -217,6 +305,7 @@ func (s *store) qry(q string) <-chan []byte {
 	}()
 	return ch
 }
+*/
 
 func (s *store) Count() int {
 	s.RLock()
@@ -244,19 +333,6 @@ func verify(key, val []byte) error {
 	return nil
 }
 
-func (s *store) genKeyMsgpack(k interface{}) ([]byte, error) {
-	b, err := msgpack.Marshal(k)
-	if err != nil {
-		return nil, err
-	}
-	if len(b) > maxKey {
-		b = b[:maxKey] // truncate to len of maxKey
-		return b, nil
-	}
-	b = append(make([]byte, maxKey-len(b)), b...)
-	return b, nil
-}
-
 func (s *store) genKey(k interface{}) ([]byte, error) {
 	switch k.(type) {
 	case string:
@@ -278,3 +354,18 @@ func (s *store) genKey(k interface{}) ([]byte, error) {
 	s.buf.Reset()
 	return key, nil
 }
+
+/*
+func (s *store) genKeyMsgpack(k interface{}) ([]byte, error) {
+	b, err := msgpack.Marshal(k)
+	if err != nil {
+		return nil, err
+	}
+	if len(b) > maxKey {
+		b = b[:maxKey] // truncate to len of maxKey
+		return b, nil
+	}
+	b = append(make([]byte, maxKey-len(b)), b...)
+	return b, nil
+}
+*/
