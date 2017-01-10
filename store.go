@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -83,7 +84,7 @@ func (s *store) Add(key, val interface{}) error {
 	if err != nil {
 		return fmt.Errorf("store[add]: error while generating key -> %q", err)
 	}
-	//v, err := json.Marshal(val)
+	// v, err := json.Marshal(val)
 	v, err := msgpack.Marshal(val)
 	if err != nil {
 		return fmt.Errorf("store[add]: error while attempting to marshal -> %q", err)
@@ -104,7 +105,7 @@ func (s *store) Set(key, val interface{}) error {
 	if err != nil {
 		return fmt.Errorf("store[set]: error while generating key -> %q", err)
 	}
-	//v, err := json.Marshal(val)
+	// v, err := json.Marshal(val)
 	v, err := msgpack.Marshal(val)
 	if err != nil {
 		return fmt.Errorf("store[set]: error while attempting to marshal -> %q", err)
@@ -129,7 +130,7 @@ func (s *store) Get(key, ptr interface{}) error {
 	if err != nil {
 		return fmt.Errorf("store[get]: error while getting value from index -> %q", err)
 	}
-	//if err := json.Unmarshal(v, ptr); err != nil {
+	// if err := json.Unmarshal(v, ptr); err != nil {
 	if err := msgpack.Unmarshal(v, ptr); err != nil {
 		return fmt.Errorf("store[get]: error while attempting to un-marshal -> %q", err)
 	}
@@ -196,22 +197,59 @@ func (s *store) Query(qry string, ptr interface{}) error {
 }
 */
 
-func (s *store) Q(qry string, ptr interface{}) error {
+func (s *store) QueryOne(qry string, ptr interface{}) error {
+	return nil
+}
+
+func (s *store) Query(qry string, ptr interface{}) error {
+
+	// type checking for pointer
+	typ := reflect.TypeOf(ptr)
+	if typ.Kind() != reflect.Ptr {
+		return fmt.Errorf("error: expected pointer to model\n")
+	}
+
+	// derefrencing pointer; getting model type and value
+	typ = typ.Elem()
+	val := reflect.Indirect(reflect.ValueOf(ptr))
+
+	// init vars and split query values
 	var dec *msgpack.Decoder
 	var buf *bytes.Buffer
 	qrys := strings.Split(qry, "&&")
-	for val := range s.idx.next() {
-		if val == nil {
+
+	// iterate the index by record, skipping empty ones
+	for rec := range s.idx.next() {
+		if rec == []byte(nil) {
 			continue
 		}
-		buf = bytes.NewBuffer(val)
+
+		// fill out buffer, and initialize decoder
+		buf = bytes.NewBuffer(rec)
 		dec = msgpack.NewDecoder(buf)
+
+		// check for a query match
 		ok, err := match(dec, qrys)
 		if err != nil {
 			return err
 		}
+
+		//
+		//buf.Reset()
+		if err := dec.Reset(buf); err != nil {
+			return err
+		}
+
+		// found a match!
 		if ok {
-			// do stuff
+			// found match, create new zero type
+			zro := reflect.Zero(typ.Elem())
+			//
+			err := dec.DecodeValue(zro)
+			if err != nil {
+				return err
+			}
+			val.Set(reflect.Append(val, zro))
 		}
 	}
 	return nil
@@ -243,7 +281,7 @@ type User struct {
 	Active bool
 }
 
-func doit(m interface{}) error {
+func (m interface{}) error {
 	typ := reflect.TypeOf(m)
 	if typ.Kind() != reflect.Ptr {
 		return fmt.Errorf("error: expected pointer to model\n")

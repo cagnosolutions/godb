@@ -828,8 +828,9 @@ func (t *btree) next() <-chan []byte {
 	}
 	ch := make(chan []byte, 1)
 	go func() {
+		var j int
 		for {
-			for i := 0; i < n.numk; i++ {
+			for i := 0; i < n.numk; i, j = i+1, j+1 {
 				if blk := n.getBlock(i); blk != nil {
 					val, err := t.ngin.getRecordVal(blk.pos)
 					if err != nil {
@@ -839,9 +840,14 @@ func (t *btree) next() <-chan []byte {
 					ch <- val
 				}
 			}
-			if n = n.next(); n == nil {
+			if j == t.count {
 				break
 			}
+			n = n.next()
+			fmt.Printf("btree.go >> next() >> n == nil: %v, n: %v\n", n == nil, n)
+			//if n == nil {
+			//	break
+			//}
 		}
 		close(ch)
 	}()

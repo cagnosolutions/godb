@@ -144,7 +144,7 @@ func qry() {
 
 	var users []User
 
-	if err := usr.Query(".role == ROLE_USER && .active == true", &users); err != nil {
+	if err := usr.Query(".role == ROLE_ADMIN", &users); err != nil {
 		panic(err)
 	}
 
