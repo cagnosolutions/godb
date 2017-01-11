@@ -1,7 +1,6 @@
 package msgpack
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -13,19 +12,6 @@ import (
 const bytesAllocLimit = 1024 * 1024 // 1mb
 const sliceAllocLimit = 1e4
 const mapAllocLimit = 1e4
-
-type bufReader interface {
-	Read([]byte) (int, error)
-	ReadByte() (byte, error)
-	UnreadByte() error
-}
-
-func newBufReader(r io.Reader) bufReader {
-	if br, ok := r.(bufReader); ok {
-		return br
-	}
-	return bufio.NewReader(r)
-}
 
 func Unmarshal(b []byte, v ...interface{}) error {
 	if len(v) == 1 && v[0] != nil {
@@ -40,22 +26,27 @@ func Unmarshal(b []byte, v ...interface{}) error {
 type Decoder struct {
 	DecodeMapFunc func(*Decoder) (interface{}, error)
 
-	r   bufReader
+	r   *bytes.Reader
 	buf []byte
 }
 
-func NewDecoder(r io.Reader) *Decoder {
+func NewDecoder(r *bytes.Reader) *Decoder {
 	return &Decoder{
 		DecodeMapFunc: decodeMap,
 
-		r:   newBufReader(r),
+		r:   r,
 		buf: make([]byte, 64),
 	}
 }
 
-func (d *Decoder) Reset(r io.Reader) error {
-	d.r = newBufReader(r)
+func (d *Decoder) Reset(r *bytes.Reader) error {
+	d.r = r
 	return nil
+}
+
+func (d *Decoder) Rewind() error {
+	_, err := d.r.Seek(0, io.SeekStart)
+	return err
 }
 
 func (d *Decoder) Decode(v ...interface{}) error {
@@ -359,7 +350,7 @@ func (d *Decoder) readN(n int) ([]byte, error) {
 	return d.buf, err
 }
 
-func readN(r io.Reader, b []byte, n int) ([]byte, error) {
+func readN(r *bytes.Reader, b []byte, n int) ([]byte, error) {
 	if n == 0 && b == nil {
 		return make([]byte, 0), nil
 	}

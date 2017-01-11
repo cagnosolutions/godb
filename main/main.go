@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	COUNT = 24
+	COUNT = 1024
 	DEBUG = false
 )
 
@@ -88,7 +88,7 @@ func main() {
 	 *	open/close store between each call
 	 */
 
-	//add() // add users to store
+	// add() // add users to store
 
 	//get() // get users from store
 
@@ -144,11 +144,15 @@ func qry() {
 
 	var users []User
 
-	if err := usr.Query(".role == ROLE_ADMIN", &users); err != nil {
+	if err := usr.Query("id >= 10 && id < 20", &users); err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("\nlen(users): %d, Users:%v\n", len(users), users)
+	fmt.Printf("\nlen(users): %d\n", len(users))
+
+	for _, u := range users {
+		fmt.Printf("\n%+v\n", u)
+	}
 
 	cls() // close store
 

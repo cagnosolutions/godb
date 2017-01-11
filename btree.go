@@ -821,33 +821,26 @@ func (t *btree) findFirstLeaf() *node {
 	return c
 }
 
-func (t *btree) next() <-chan []byte {
+func (t *btree) nextRecord() <-chan []byte {
 	n := t.findFirstLeaf()
 	if n == nil {
 		return nil
 	}
 	ch := make(chan []byte, 1)
 	go func() {
-		var j int
 		for {
-			for i := 0; i < n.numk; i, j = i+1, j+1 {
+			for i := 0; i < n.numk; i++ {
 				if blk := n.getBlock(i); blk != nil {
 					val, err := t.ngin.getRecordVal(blk.pos)
 					if err != nil {
 						ch <- nil
 					}
-					fmt.Printf("VAL: %#+v\n", val)
 					ch <- val
 				}
 			}
-			if j == t.count {
+			if n = n.nextLeaf(); n == nil {
 				break
 			}
-			n = n.next()
-			fmt.Printf("btree.go >> next() >> n == nil: %v, n: %v\n", n == nil, n)
-			//if n == nil {
-			//	break
-			//}
 		}
 		close(ch)
 	}()

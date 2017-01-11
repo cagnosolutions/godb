@@ -69,10 +69,10 @@ func (n *node) hasKey(k []byte) int {
 	return -1
 }
 
-func (n *node) next() *node {
+func (n *node) nextLeaf() *node {
 	// if node has neighbor, visit...
-	if n.ptrs[0] != nil {
-		return (*node)(unsafe.Pointer(n.ptrs[0]))
+	if n.leaf && n.ptrs[M-1] != nil {
+		return (*node)(unsafe.Pointer(n.ptrs[M-1]))
 	}
 	return nil
 }
