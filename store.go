@@ -192,6 +192,39 @@ func (s *store) Del(key interface{}) error {
 	return nil
 }
 
+func (s *store) All(ptr interface{}) error {
+	typ := reflect.TypeOf(ptr)
+	if typ.Kind() != reflect.Ptr {
+		return fmt.Errorf("error: expected pointer to model\n")
+	}
+
+	// derefrencing pointer; getting model type and value
+	typ = typ.Elem()
+	val := reflect.Indirect(reflect.ValueOf(ptr))
+
+	// init vars and split query values
+	var dec *msgpack.Decoder
+	var buf *bytes.Reader
+
+	for rec := range s.idx.nextRecord() {
+		if rec == nil {
+			continue
+		}
+		// fill out buffer, and initialize decoder
+		buf = bytes.NewReader(rec)
+		dec = msgpack.NewDecoder(buf)
+
+		// new pointer to refect value of single ptr type
+		zro := reflect.Indirect(reflect.New(typ.Elem()))
+		if err := dec.DecodeValue(zro); err != nil {
+			return err
+		}
+		// append value to ptr value
+		val.Set(reflect.Append(val, zro))
+	}
+	return nil
+}
+
 func (s *store) QueryOne(qry string, ptr interface{}) error {
 	return nil
 }
@@ -232,7 +265,7 @@ func (s *store) Query(qry string, ptr interface{}) error {
 		if ok {
 			// new pointer to refect value of single ptr type
 			zro := reflect.Indirect(reflect.New(typ.Elem()))
-			if dec.DecodeValue(zro); err != nil {
+			if err := dec.DecodeValue(zro); err != nil {
 				return err
 			}
 			// append matched value to ptr value

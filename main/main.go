@@ -94,6 +94,8 @@ func main() {
 
 	qry()
 
+	// all()
+
 	//del() // del users from store
 
 }
@@ -138,13 +140,30 @@ func get() {
 
 }
 
+func all() {
+
+	opn()
+
+	var users []User
+
+	if err := usr.All(&users); err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("len(users): %d\n\n", len(users))
+
+	cls()
+}
+
 func qry() {
 
 	opn() // open store
 
+	log.Printf("Getting all users from store...\n")
+
 	var users []User
 
-	if err := usr.Query("id >= 10 && id < 20", &users); err != nil {
+	if err := usr.Query("id > 512 ", &users); err != nil {
 		panic(err)
 	}
 
