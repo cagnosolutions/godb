@@ -93,24 +93,25 @@ func openStore(path string) (*store, error) {
 	return st, nil
 }
 
-func (s *store) Statement(str string, ptr ...interface{}) error {
-	var p interface{}
+// NOTE: WORK IN PROGRESS...
+func (s *store) Cmd(str string, ptr ...interface{}) error {
+	var obj int
 	if len(ptr) > 0 {
-		p = ptr[0]
+		obj = ptr[0]
 	}
-	args := strings.Fields(str)
+	argv := strings.Fields(str)
 	var key, val interface{}
-	switch args[0] {
+	switch argv[0] {
 	case "ADD":
-		s.Add(key, val)
+		return s.Add(key, val)
 	case "SET":
-		s.Set(key, val)
+		return s.Set(key, val)
 	case "GET":
-		s.Get(key, val)
+		return s.Get(key, val)
 	case "DELETE":
-		s.Del(key)
+		return s.Del(key)
 	case "QUERY":
-		s.Query("", val)
+		return s.Query(val, obj)
 	}
 	return nil
 }
