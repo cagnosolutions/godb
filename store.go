@@ -111,7 +111,10 @@ func (s *store) Cmd(str string, ptr ...interface{}) error {
 	case "DELETE":
 		return s.Del(key)
 	case "QUERY":
-		return s.Query(val, obj)
+		if ok, v := val.(string); ok {
+			return s.Query(v, obj)
+		}
+		return fmt.Errorf("val is not a string")
 	}
 	return nil
 }
