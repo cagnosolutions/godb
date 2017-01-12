@@ -13,6 +13,8 @@ const bytesAllocLimit = 1024 * 1024 // 1mb
 const sliceAllocLimit = 1e4
 const mapAllocLimit = 1e4
 
+const seekStart = 0 // for backwards compatibility; use io.SeekStart const in the future.
+
 func Unmarshal(b []byte, v ...interface{}) error {
 	if len(v) == 1 && v[0] != nil {
 		unmarshaler, ok := v[0].(Unmarshaler)
@@ -45,7 +47,7 @@ func (d *Decoder) Reset(r *bytes.Reader) error {
 }
 
 func (d *Decoder) Rewind() error {
-	_, err := d.r.Seek(0, io.SeekStart)
+	_, err := d.r.Seek(0, seekStart) 
 	return err
 }
 
