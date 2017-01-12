@@ -11,6 +11,22 @@ import (
 	"github.com/cagnosolutions/godb/msgpack"
 )
 
+/*
+// NOTE: Turn Store struct with embedded store into a Store interface.
+type Store interface {
+	func OpenStore(path string) (*Store, error)
+	func (s *Store) Add(key, val interface{}) error
+	func (s *Store) Set(key, val interface{}) error
+	func (s *Store) Get(key, ptr interface{}) error
+	func (s *Store) Del(key interface{}) error
+	func (s *Store) QueryOne(qry string, ptr interface{}) error
+	func (s *Store) Query(qry string, ptr interface{}) error
+	func (s *Store) Count() int
+	func (s *Store) Close() error
+	func (s *Store) Sync()
+}
+*/
+
 type Store struct {
 	store
 }
