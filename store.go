@@ -95,7 +95,7 @@ func openStore(path string) (*store, error) {
 
 // NOTE: WORK IN PROGRESS...
 func (s *store) Cmd(str string, ptr ...interface{}) error {
-	var obj int
+	var obj interface{}
 	if len(ptr) > 0 {
 		obj = ptr[0]
 	}
@@ -111,7 +111,7 @@ func (s *store) Cmd(str string, ptr ...interface{}) error {
 	case "DELETE":
 		return s.Del(key)
 	case "QUERY":
-		if ok, v := val.(string); ok {
+		if v, ok := val.(string); ok {
 			return s.Query(v, obj)
 		}
 		return fmt.Errorf("val is not a string")
