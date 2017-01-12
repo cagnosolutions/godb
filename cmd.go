@@ -43,7 +43,7 @@ package godb
     
     NOTE: This implementation opens, performs the action, syncs and
     closes for each command. Leaving no need for any explicit opens, 
-    syncs or closes. It also locs around each action, so it's "safe"
+    syncs or closes. It also locks around each action, so it's "safe"
     ---------------------------------------------------------------
     Non-Interactive Command Line Interface (examples, notes, ideas)
     ===============================================================
@@ -54,9 +54,9 @@ package godb
     | $ godb --get users --key 123
     | { Id: 123, Name: "Scott Cagno", Active: false }
     | $ godb --del users --key 123 
-    | $ godb --qry users "active == true"
+    | $ godb --qry users --key * --val "active == true"  // in qry, key acts as limiter
     | err: No results found.
-    | $ godb --qry users --key 1 --val "active == false" // key acts as limiter
+    | $ godb --qry users --key 1 --val "active == false" // in qry, key acts as limiter
     | { Id: 123, Name: "Scott Cagno", Active: false }
     | $
 */
