@@ -28,12 +28,12 @@ type Store interface {
 */
 
 type Store struct {
-	store
+	*store
 }
 
 func OpenStore(path string) (*Store, error) {
 	s, err := openStore(path)
-	return &Store{store: *s}, err
+	return &Store{store: s}, err
 }
 
 func (s *Store) Add(key, val interface{}) error {
@@ -126,7 +126,6 @@ func (s *store) Add(key, val interface{}) error {
 	if err != nil {
 		return fmt.Errorf("store[add]: error while generating key -> %q", err)
 	}
-	// v, err := json.Marshal(val)
 	v, err := msgpack.Marshal(val)
 	if err != nil {
 		return fmt.Errorf("store[add]: error while attempting to marshal -> %q", err)
@@ -147,7 +146,6 @@ func (s *store) Set(key, val interface{}) error {
 	if err != nil {
 		return fmt.Errorf("store[set]: error while generating key -> %q", err)
 	}
-	// v, err := json.Marshal(val)
 	v, err := msgpack.Marshal(val)
 	if err != nil {
 		return fmt.Errorf("store[set]: error while attempting to marshal -> %q", err)
@@ -172,7 +170,6 @@ func (s *store) Get(key, ptr interface{}) error {
 	if err != nil {
 		return fmt.Errorf("store[get]: error while getting value from index -> %q", err)
 	}
-	// if err := json.Unmarshal(v, ptr); err != nil {
 	if err := msgpack.Unmarshal(v, ptr); err != nil {
 		return fmt.Errorf("store[get]: error while attempting to un-marshal -> %q", err)
 	}
