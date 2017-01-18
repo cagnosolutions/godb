@@ -24,26 +24,26 @@ func Test_BTree_Has(t *testing.T) {
 
 // test add
 func Test_BTree_Add(t *testing.T) {
-	tree := new(btree)
+	btree_tree := new(btree)
 	btree_tree.add([]byte{0x42}, []byte{0x99})
 	if btree_tree.count != 1 {
 		t.Fatalf("expected 1, got: %d\n", btree_tree.count) // should be 1
 	}
-	if dat := btree_tree.get([]byte{0x42}); !bytes.Equal(dat, []byte{0x99}) {
+	if dat, _ := btree_tree.get([]byte{0x42}); !bytes.Equal(dat, []byte{0x99}) {
 		t.Fatalf("expected '0x99', got: %s\n", dat)
 	}
 	btree_tree.add([]byte{0x42}, []byte{0x77}) // overwrite record, should no work
 	if btree_tree.count != 1 {
 		t.Fatalf("expected 1, got: %d\n", btree_tree.count) // should be 1
 	}
-	if dat := btree_tree.get([]byte{0x42}); !bytes.Equal(dat, []byte{0x99}) {
+	if dat, _ := btree_tree.get([]byte{0x42}); !bytes.Equal(dat, []byte{0x99}) {
 		t.Fatalf("expected '0x99', got: %s\n", dat)
 	}
 	btree_tree.add([]byte{0x22}, []byte{0x44})
 	if btree_tree.count != 2 {
 		t.Fatalf("expected 2, got: %d\n", btree_tree.count) // should be 2
 	}
-	if dat := btree_tree.get([]byte{0x22}); !bytes.Equal(dat, []byte{0x44}) {
+	if dat, _ := btree_tree.get([]byte{0x22}); !bytes.Equal(dat, []byte{0x44}) {
 		t.Fatalf("expected '0x44', got: %s\n", dat)
 	}
 }
@@ -54,47 +54,47 @@ func Test_BTree_Get(t *testing.T) {
 	if btree_tree.count != 0 {
 		t.Fatalf("expected 0, got: %d\n", btree_tree.count)
 	}
-	if dat := btree_tree.get([]byte{0x11}); dat != nil {
+	if dat, _ := btree_tree.get([]byte{0x11}); dat != nil {
 		t.Fatalf("expexted nil, got: %s\n", dat)
 	}
 	btree_tree.set([]byte{0x11}, []byte{0x01})
 	if btree_tree.count != 1 {
 		t.Fatalf("expected 1, got: %d\n", btree_tree.count)
 	}
-	if dat := btree_tree.get([]byte{0x11}); !bytes.Equal(dat, []byte{0x01}) {
+	if dat, _ := btree_tree.get([]byte{0x11}); !bytes.Equal(dat, []byte{0x01}) {
 		t.Fatalf("expected '0x01', got: %s\n", dat)
 	}
 }
 
 // test set
 func Test_BTree_Set(t *testing.T) {
-	tree := new(btree)
+	btree_tree := new(btree)
 	btree_tree.set([]byte{0x42}, []byte{0x99})
 	if btree_tree.count != 1 {
 		t.Fatalf("expected 1, got: %d\n", btree_tree.count) // should be 1
 	}
-	if dat := btree_tree.get([]byte{0x42}); !bytes.Equal(dat, []byte{0x99}) {
+	if dat, _ := btree_tree.get([]byte{0x42}); !bytes.Equal(dat, []byte{0x99}) {
 		t.Fatalf("expected '0x99', got: %s\n", dat)
 	}
 	btree_tree.set([]byte{0x42}, []byte{0x77}) // overwrite record
 	if btree_tree.count != 1 {
 		t.Fatalf("expected 1, got: %d\n", btree_tree.count) // should be 1
 	}
-	if dat := btree_tree.get([]byte{0x42}); !bytes.Equal(dat, []byte{0x77}) {
+	if dat, _ := btree_tree.get([]byte{0x42}); !bytes.Equal(dat, []byte{0x77}) {
 		t.Fatalf("expected '0x77', got: %s\n", dat)
 	}
 	btree_tree.set([]byte{0x22}, []byte{0x44})
 	if btree_tree.count != 2 {
 		t.Fatalf("expected 2, got: %d\n", btree_tree.count) // should be 2
 	}
-	if dat := btree_tree.get([]byte{0x22}); !bytes.Equal(dat, []byte{0x44}) {
+	if dat, _ := btree_tree.get([]byte{0x22}); !bytes.Equal(dat, []byte{0x44}) {
 		t.Fatalf("expected '0x44', got: %s\n", dat)
 	}
 }
 
 // test del
 func Test_BTree_Del(t *testing.T) {
-	tree := new(btree)
+	btree_tree := new(btree)
 	btree_tree.del([]byte{0x11}) // delete non-existant key
 	if btree_tree.count != 0 {   // check to make sure count doesn't decrement unnecessarily
 		t.Fatalf("expected size=0, got: %d\n", btree_tree.count) // should be 0
@@ -155,7 +155,7 @@ func benchmark_BTree_SetSeq(b *testing.B, n int) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		tree := new(btree)
+		btree_tree := new(btree)
 		debug.FreeOSMemory()
 		b.StartTimer()
 		for j := 0; j < n; j++ {
@@ -165,7 +165,7 @@ func benchmark_BTree_SetSeq(b *testing.B, n int) {
 		if btree_tree.count != n {
 			b.Fatalf("expected %d entries, got: %d entries instead\n", n, btree_tree.count)
 		}
-		btree_tree.Close()
+		btree_tree.close()
 	}
 	b.StopTimer()
 }
@@ -192,7 +192,7 @@ func benchmark_BTree_SetRnd(b *testing.B, n int) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		tree := new(btree)
+		btree_tree := new(btree)
 		debug.FreeOSMemory()
 		b.StartTimer()
 		for _, v := range a {
@@ -203,7 +203,7 @@ func benchmark_BTree_SetRnd(b *testing.B, n int) {
 		if btree_tree.count != n {
 			b.Fatalf("expected %d entries, got: %d entries instead\n", n, btree_tree.count)
 		}
-		btree_tree.Close()
+		btree_tree.close()
 	}
 	b.StopTimer()
 }
@@ -226,7 +226,7 @@ func Benchmark_BTree_GetSeq_1e5(b *testing.B) {
 // }
 
 func benchmark_BTree_GetSeq(b *testing.B, n int) {
-	tree := new(btree)
+	btree_tree := new(btree)
 	for i := 0; i < n; i++ {
 		btree_tree.set([]byte(strconv.Itoa(i)), []byte{0xde, 0xad, 0xbe, 0xef})
 	}
@@ -235,13 +235,13 @@ func benchmark_BTree_GetSeq(b *testing.B, n int) {
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < n; j++ {
 			kv := strconv.Itoa(j)
-			if dat := btree_tree.get([]byte(kv)); !bytes.Equal(dat, []byte{0xde, 0xad, 0xbe, 0xef}) {
+			if dat, _ := btree_tree.get([]byte(kv)); !bytes.Equal(dat, []byte{0xde, 0xad, 0xbe, 0xef}) {
 				b.Fatalf("expected %+#v, but got: %+#v\n", kv, dat)
 			}
 		}
 	}
 	b.StopTimer()
-	btree_tree.Close()
+	btree_tree.close()
 }
 
 // btree get random
@@ -262,7 +262,7 @@ func Benchmark_BTree_GetRnd_1e5(b *testing.B) {
 // }
 
 func benchmark_BTree_GetRnd(b *testing.B, n int) {
-	tree := new(btree)
+	btree_tree := new(btree)
 	a := rand.New(rand.NewSource(59684)).Perm(n)
 	for _, v := range a { // fill tree with random data
 		btree_tree.set([]byte(strconv.Itoa(v)), []byte{0xde, 0xad, 0xbe, 0xef})
@@ -272,13 +272,13 @@ func benchmark_BTree_GetRnd(b *testing.B, n int) {
 	for i := 0; i < b.N; i++ {
 		for _, v := range a {
 			kv := strconv.Itoa(v)
-			if dat := btree_tree.get([]byte(kv)); !bytes.Equal(dat, []byte{0xde, 0xad, 0xbe, 0xef}) {
+			if dat, _ := btree_tree.get([]byte(kv)); !bytes.Equal(dat, []byte{0xde, 0xad, 0xbe, 0xef}) {
 				b.Fatalf("expected %+#v, but got: %+#v\n", kv, dat)
 			}
 		}
 	}
 	b.StopTimer() // stop the timer and close btree_tree.
-	btree_tree.Close()
+	btree_tree.close()
 }
 
 // btree del sequential
@@ -299,7 +299,7 @@ func Benchmark_BTree_DelSeq_1e5(b *testing.B) {
 // }
 
 func benchmark_BTree_DelSeq(b *testing.B, n int) {
-	tree := new(btree)
+	btree_tree := new(btree)
 	for i := 0; i < n; i++ {
 		btree_tree.set([]byte(strconv.Itoa(i)), []byte{0xde, 0xad, 0xbe, 0xef})
 	}
@@ -317,7 +317,7 @@ func benchmark_BTree_DelSeq(b *testing.B, n int) {
 		}
 	}
 	b.StopTimer()
-	btree_tree.Close()
+	btree_tree.close()
 }
 
 // btree get random
@@ -338,7 +338,7 @@ func Benchmark_BTree_DelRnd_1e5(b *testing.B) {
 // }
 
 func benchmark_BTree_DelRnd(b *testing.B, n int) {
-	tree := new(btree)
+	btree_tree := new(btree)
 	a := rand.New(rand.NewSource(65489)).Perm(n)
 	for _, v := range a { // fill tree with random data
 		btree_tree.set([]byte(strconv.Itoa(v)), []byte{0xde, 0xad, 0xbe, 0xef})
@@ -357,7 +357,7 @@ func benchmark_BTree_DelRnd(b *testing.B, n int) {
 		}
 	}
 	b.StopTimer() // stop the timer and close btree_tree.
-	btree_tree.Close()
+	btree_tree.close()
 }
 
 // OTHER TESTING....
@@ -374,7 +374,7 @@ func Benchmark_BTree_Has(b *testing.B) {
 		}
 	}
 	b.StopTimer()
-	btree_tree.Close()
+	btree_tree.close()
 }
 
 func Benchmark_BTree_Add(b *testing.B) {
@@ -386,7 +386,7 @@ func Benchmark_BTree_Add(b *testing.B) {
 		btree_tree.add(d, d)
 	}
 	b.StopTimer()
-	btree_tree.Close()
+	btree_tree.close()
 }
 
 func Benchmark_BTree_Set(b *testing.B) {
@@ -398,7 +398,7 @@ func Benchmark_BTree_Set(b *testing.B) {
 		btree_tree.set(d, d)
 	}
 	b.StopTimer()
-	btree_tree.Close()
+	btree_tree.close()
 }
 
 func Benchmark_BTree_Get(b *testing.B) {
@@ -415,7 +415,7 @@ func Benchmark_BTree_Get(b *testing.B) {
 		}
 	}
 	b.StopTimer()
-	btree_tree.Close()
+	btree_tree.close()
 }
 
 func Benchmark_BTree_Del(b *testing.B) {
@@ -430,6 +430,6 @@ func Benchmark_BTree_Del(b *testing.B) {
 		btree_tree.del(d)
 	}
 	b.StopTimer()
-	btree_tree.Close()
+	btree_tree.close()
 }
 */
