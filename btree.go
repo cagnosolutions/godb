@@ -433,7 +433,7 @@ func (t *btree) del(key []byte) error {
 	err := fmt.Errorf("btree[del]: failed to locate proper leaf or block (leaf: %+v, block: %+v)", leaf, blk)
 	if blk != nil && leaf != nil {
 		// delete record from engine
-		if err := t.ngin.delRecord(blk.pos); err != nil {
+		if err = t.ngin.delRecord(blk.pos); err != nil {
 			return fmt.Errorf("btree[del]: faied to delete record from engine -> %s", err)
 		}
 		// delete index block from tree

@@ -44,7 +44,7 @@ func (e *engine) open(path string) (bool, error) {
 	if err != nil && !os.IsExist(err) {
 		fdstat = true
 		dirs, _ := filepath.Split(path)
-		err := os.MkdirAll(dirs, 0755)
+		err = os.MkdirAll(dirs, 0755)
 		if err != nil {
 			return fdstat, err
 		}
@@ -52,10 +52,10 @@ func (e *engine) open(path string) (bool, error) {
 		if err != nil {
 			return fdstat, err
 		}
-		if err := fd.Truncate(int64(slab)); err != nil {
+		if err = fd.Truncate(int64(slab)); err != nil {
 			return fdstat, err
 		}
-		if err := fd.Close(); err != nil {
+		if err = fd.Close(); err != nil {
 			return fdstat, err
 		}
 	}
