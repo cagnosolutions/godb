@@ -34,9 +34,9 @@ func newRecord(key, val []byte) *record {
 }
 
 // return key from data record
-func (r *record) key() []byte {
-	return r.data[:maxKey]
-}
+// func (r *record) key() []byte {
+// 	return r.data[:maxKey]
+// }
 
 // return val from data record
 func (r *record) val() []byte {

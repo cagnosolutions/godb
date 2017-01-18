@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	COUNT = 1024
+	COUNT = 50000
 	DEBUG = false
 )
 
@@ -88,11 +88,11 @@ func main() {
 	 *	open/close store between each call
 	 */
 
-	// add() // add users to store
+	add() // add users to store
 
 	//get() // get users from store
 
-	qry()
+	// qry()
 
 	// all()
 
@@ -112,9 +112,12 @@ func add() {
 
 	// add users to store
 	log.Printf("Adding users to store...\n")
-	for _, u := range data {
+	for i, u := range data {
 		if err := usr.Add(u.Id, u); err != nil {
 			panic(err)
+		}
+		if (i+1)%10000 == 0 {
+			fmt.Println(i + 1)
 		}
 	}
 
@@ -159,7 +162,7 @@ func qry() {
 
 	opn() // open store
 
-	log.Printf("Getting all users from store...\n")
+	log.Printf("Querying users in store...\n")
 
 	var users []User
 

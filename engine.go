@@ -193,9 +193,11 @@ func (e *engine) delRecord(k int) error {
 
 // grow the underlying mapped file
 func (e *engine) grow() error {
+	// t1 := time.Now().UnixNano()
 	// resize the size to current size + 512 KBs, ie. leaf data page size
 	size := ((len(e.data) + slab) + page - 1) &^ (page - 1)
 	// unmap current mapping before growing underlying file...
+	e.data.Sync()
 	e.data.Munmap()
 	// truncate underlying file to updated size, check for errors
 	if err := syscall.Ftruncate(int(e.file.Fd()), int64(size)); err != nil {
@@ -204,6 +206,8 @@ func (e *engine) grow() error {
 	// remap underlying file now that it has grown
 	e.data = Mmap(e.file, 0, size)
 	// there were no errors, so return nil
+	// t2 := time.Now().UnixNano()
+	// fmt.Printf("engine.grow():\n\tnanoseconds: %d\n\tmicroseconds: %d\n\tmilliseconds: %d\n\n", t2-t1, (t2-t1)/1000, ((t2-t1)/1000)/1000)
 	return nil
 }
 

@@ -1,8 +1,10 @@
 package godb
 
 import (
+	"fmt"
 	"os"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
@@ -13,6 +15,7 @@ func Mmap(f *os.File, off, len int) mmap {
 	if err != nil {
 		panic(err)
 	}
+
 	return mm
 }
 
@@ -31,7 +34,10 @@ func (mm mmap) Munlock() {
 }
 
 func (mm mmap) Munmap() {
+	t1 := time.Now().UnixNano()
 	err := syscall.Munmap(mm)
+	t2 := time.Now().UnixNano()
+	fmt.Printf("syscall.Munmap(mm):\n\tnanoseconds: %d\n\tmicroseconds: %d\n\tmilliseconds: %d\n\n", t2-t1, (t2-t1)/1000, ((t2-t1)/1000)/1000)
 	mm = nil
 	if err != nil {
 		panic(err)
