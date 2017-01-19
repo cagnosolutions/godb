@@ -90,13 +90,18 @@ func main() {
 
 	add() // add users to store
 
-	//get() // get users from store
+	// get() // get users from store
 
 	// qry()
 
 	// all()
 
 	//del() // del users from store
+
+	/*opn()
+	fmt.Println("sleeping 5 seconds...")
+	time.Sleep(5 * time.Second)
+	cls()*/
 
 }
 

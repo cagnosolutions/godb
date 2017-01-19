@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	page = 1 << 12 //   4 KB
-	slab = 1 << 19 // 512 KB
+	page = 1 << 12       //   4 KB
+	slab = (1 << 19) * 8 // 512 KB * 8 == 4 MB
 )
 
 var empty = make([]byte, page, page)
@@ -194,8 +194,9 @@ func (e *engine) delRecord(k int) error {
 // grow the underlying mapped file
 func (e *engine) grow() error {
 	// t1 := time.Now().UnixNano()
-	// resize the size to current size + 512 KBs, ie. leaf data page size
-	size := ((len(e.data) + slab) + page - 1) &^ (page - 1)
+	// slab *= 2
+	// resize the size to double the current, ie. len * 2
+	size := ((len(e.data) * 2) + page - 1) &^ (page - 1)
 	// unmap current mapping before growing underlying file...
 	e.data.Sync()
 	e.data.Munmap()

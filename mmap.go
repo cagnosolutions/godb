@@ -4,55 +4,26 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"runtime"
-	"strings"
 	"syscall"
 	"time"
 	"unsafe"
 )
 
 const (
-	prot  int = syscall.PROT_READ | syscall.PROT_WRITE
-	flags int = syscall.MAP_SHARED
+	PROT  uint = syscall.PROT_READ | syscall.PROT_WRITE
+	FLAGS uint = syscall.MAP_SHARED
 )
-
-func init() {
-	if runtime.GOOS != `linux` {
-		panic("Not a supported system, currently only supports the Linux OS")
-	}
-	if runtime.GOARCH != `amd64` || runtime.GOARCH != `386` {
-		panic("Not a supported system, currently only supports i386/amd64 CPU's")
-	}
-}
 
 type mmap []byte
 
 // NOTE: UPDATED
 func Mmap(fd *os.File, off, len int) mmap {
 	//mm, err := syscall.Mmap(int(f.Fd()), int64(off), len, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
-	mm, err := mmap_at(0, fd, off, len, prot, flags)
+	mm, err := mmap_at(0, fd.Fd(), int64(off), int64(len), PROT, FLAGS)
 	if err != nil {
 		panic(err)
 	}
 	return mm
-}
-
-// NOTE: NEW (for linux_amd64 and linux_386 only)
-func mmap_syscall(addr, length, prot, flags, fd uintptr, offset int64) (uintptr, error) {
-	switch runtime.GOARCH {
-	case `amd64`:
-		addr, _, err := syscall.Syscall6(syscall.SYS_MMAP, addr, length, prot, flags, fd, uintptr(offset))
-		return addr, err
-	case `386`:
-		page := uintptr(offset / 4096)
-		if offset != int64(page)*4096 {
-			return 0, syscall.EINVAL
-		}
-		addr, _, err := syscall.Syscall6(syscall.SYS_MMAP2, addr, length, prot, flags, fd, page)
-		return addr, err
-	default:
-		return 0, syscall.EINVAL
-	}
 }
 
 // NOTE: NEW
@@ -79,16 +50,19 @@ func mmap_at(addr uintptr, fd uintptr, offset, length int64, prot uint, flags ui
 // NOTE: NEW
 func (mm mmap) Munmap() {
 	dh := *(*reflect.SliceHeader)(unsafe.Pointer(&mm))
+	t1 := time.Now().UnixNano()
 	_, _, err := syscall.Syscall(syscall.SYS_MUNMAP, uintptr(dh.Data), uintptr(dh.Len), 0)
+	t2 := time.Now().UnixNano()
+	fmt.Printf("syscall.Munmap(mm):\n\tnanoseconds: %d\n\tmicroseconds: %d\n\tmilliseconds: %d\n\n", t2-t1, (t2-t1)/1000, ((t2-t1)/1000)/1000)
 	if err != 0 {
 		panic(err)
 	}
 }
 
 // NOTE: NEW
-func (mm mmap) Sync(flags int) {
+func (mm mmap) Sync() {
 	rh := *(*reflect.SliceHeader)(unsafe.Pointer(&mm))
-	_, _, err := syscall.Syscall(syscall.SYS_MSYNC, uintptr(rh.Data), uintptr(rh.Len), uintptr(flags))
+	_, _, err := syscall.Syscall(syscall.SYS_MSYNC, uintptr(rh.Data), uintptr(rh.Len), uintptr(syscall.MS_ASYNC))
 	if err != 0 {
 		panic(err)
 	}
@@ -97,7 +71,7 @@ func (mm mmap) Sync(flags int) {
 // NOTE: NEW
 func (mm mmap) IsResident() ([]bool, error) {
 	sz := os.Getpagesize()                             // page size
-	re := make([]bool, (len(mmap)+sz-1)/sz)            // result
+	re := make([]bool, (len(mm)+sz-1)/sz)              // result
 	dh := *(*reflect.SliceHeader)(unsafe.Pointer(&mm)) // result data ptr
 	rh := *(*reflect.SliceHeader)(unsafe.Pointer(&re)) // result data header ptr
 	_, _, err := syscall.Syscall(syscall.SYS_MINCORE, uintptr(dh.Data), uintptr(dh.Len), uintptr(rh.Data))
@@ -110,23 +84,23 @@ func (mm mmap) IsResident() ([]bool, error) {
 	return re, nil
 }
 
-// NOTE: NOT USED
+/*// NOTE: NOT USED
 func (mm mmap) _Mlock() {
 	err := syscall.Mlock(mm)
 	if err != nil {
 		panic(err)
 	}
-}
+}*/
 
-// NOTE: NOT USED
+/*// NOTE: NOT USED
 func (mm mmap) _Munlock() {
 	err := syscall.Munlock(mm)
 	if err != nil {
 		panic(err)
 	}
-}
+}*/
 
-// NOTE: DEPRECATED
+/*// NOTE: DEPRECATED
 func (mm mmap) _Munmap() {
 	t1 := time.Now().UnixNano()
 	err := syscall.Munmap(mm)
@@ -136,9 +110,9 @@ func (mm mmap) _Munmap() {
 	if err != nil {
 		panic(err)
 	}
-}
+}*/
 
-// NOTE: DEPRECATED
+/*// NOTE: DEPRECATED
 func (mm mmap) _Sync() {
 	_, _, err := syscall.Syscall(syscall.SYS_MSYNC,
 		uintptr(unsafe.Pointer(&mm[0])), uintptr(len(mm)),
@@ -146,9 +120,9 @@ func (mm mmap) _Sync() {
 	if err != 0 {
 		panic(err)
 	}
-}
+}*/
 
-// NOTE: NOT USED
+/*// NOTE: NOT USED
 func (mm mmap) _Mremap(size int) mmap {
 	fd := uintptr(unsafe.Pointer(&mm[0]))
 	err := syscall.Munmap(mm)
@@ -165,9 +139,9 @@ func (mm mmap) _Mremap(size int) mmap {
 		panic(err)
 	}
 	return mm
-}
+}*/
 
-// NOTE: NOT USED
+/*// NOTE: NOT USED
 func _Open(path string) (*os.File, string, int) {
 	fd, err := os.OpenFile(path, syscall.O_RDWR|syscall.O_CREAT|syscall.O_APPEND, 0644)
 	if err != nil {
@@ -178,9 +152,9 @@ func _Open(path string) (*os.File, string, int) {
 		panic(err)
 	}
 	return fd, sanitize(fi.Name()), int(fi.Size())
-}
+}*/
 
-// NOTE: NOT USED
+/*// NOTE: NOT USED
 func _sanitize(path string) string {
 	if path[len(path)-1] == '/' {
 		return path[:len(path)-1]
@@ -189,22 +163,22 @@ func _sanitize(path string) string {
 		return path[:x]
 	}
 	return path
-}
+}*/
 
-func align(size int) int {
+/*func align(size int) int {
 	if size > 0 {
 		return (size + page - 1) &^ (page - 1)
 	}
 	return page
-}
+}*/
 
-func resize(fd uintptr, size int) int {
+/*func resize(fd uintptr, size int) int {
 	err := syscall.Ftruncate(int(fd), int64(align(size)))
 	if err != nil {
 		panic(err)
 	}
 	return size
-}
+}*/
 
 /*
 // NOTE: WORKS BUT NOT PERFORMANT FOR KEEPING REFERENCE
