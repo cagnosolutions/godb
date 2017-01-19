@@ -19,6 +19,55 @@ func Mmap(f *os.File, off, len int) mmap {
 	return mm
 }
 
+// linux_amd64
+func mmap_syscall(addr, length, prot, flags, fd uintptr, offset int64) (uintptr, error) {
+	addr, _, err := syscall.Syscall6(syscall.SYS_MMAP, addr, length, prot, flags, fd, uintptr(offset))
+	return addr, err
+}
+
+func Map(addr uintptr, fd uintptr, offset, length int64, prot ProtFlags, flags MapFlags) (mmap, error) {
+	if length == -1 {
+		var stat syscall.Stat_t
+		if err := syscall.Fstat(int(fd), &stat); err != nil {
+			return nil, err
+		}
+		length = stat.Size
+	}
+	addr, err := mmap_syscall(addr, uintptr(length), uintptr(prot), uintptr(flags), fd, offset)
+	if err != syscall.Errno(0) {
+		return nil, err
+	}
+	mm := mmap{}
+
+	dh := (*reflect.SliceHeader)(unsafe.Pointer(&mm))
+	dh.Data = addr
+	dh.Len = int(length) // Hmmm.. truncating here feels like trouble.
+	dh.Cap = dh.Len
+	return mm, nil
+}
+
+
+func (mm mmap) Unmap() error {
+	rh := *(*reflect.SliceHeader)(unsafe.Pointer(&mm))
+	_, _, err := syscall.Syscall(syscall.SYS_MUNMAP, uintptr(rh.Data), uintptr(rh.Len), 0)
+	if err != 0 {
+		return err
+	}
+	return nil
+}
+
+func (mm mmap) Sync(flags SyncFlags) error {
+	rh := *(*reflect.SliceHeader)(unsafe.Pointer(&mm))
+	_, _, err := syscall.Syscall(syscall.SYS_MSYNC, uintptr(rh.Data), uintptr(rh.Len), uintptr(flags))
+	if err != 0 {
+		return err
+	}
+	return nil
+}
+
+
+
+
 func (mm mmap) Mlock() {
 	err := syscall.Mlock(mm)
 	if err != nil {
@@ -44,7 +93,7 @@ func (mm mmap) Munmap() {
 	}
 }
 
-func (mm mmap) Sync() {
+func (mm mmap) Flush() {
 	_, _, err := syscall.Syscall(syscall.SYS_MSYNC,
 		uintptr(unsafe.Pointer(&mm[0])), uintptr(len(mm)),
 		uintptr(syscall.MS_ASYNC))
