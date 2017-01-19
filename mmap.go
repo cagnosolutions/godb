@@ -3,29 +3,60 @@ package godb
 import (
 	"fmt"
 	"os"
+	"reflect"
+	"runtime"
+	"strings"
 	"syscall"
 	"time"
 	"unsafe"
 )
 
+const (
+	prot  int = syscall.PROT_READ | syscall.PROT_WRITE
+	flags int = syscall.MAP_SHARED
+)
+
+func init() {
+	if runtime.GOOS != `linux` {
+		panic("Not a supported system, currently only supports the Linux OS")
+	}
+	if runtime.GOARCH != `amd64` || runtime.GOARCH != `386` {
+		panic("Not a supported system, currently only supports i386/amd64 CPU's")
+	}
+}
+
 type mmap []byte
 
-func Mmap(f *os.File, off, len int) mmap {
-	mm, err := syscall.Mmap(int(f.Fd()), int64(off), len, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
+// NOTE: UPDATED
+func Mmap(fd *os.File, off, len int) mmap {
+	//mm, err := syscall.Mmap(int(f.Fd()), int64(off), len, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
+	mm, err := mmap_at(0, fd, off, len, prot, flags)
 	if err != nil {
 		panic(err)
 	}
-
 	return mm
 }
 
-// linux_amd64
+// NOTE: NEW (for linux_amd64 and linux_386 only)
 func mmap_syscall(addr, length, prot, flags, fd uintptr, offset int64) (uintptr, error) {
-	addr, _, err := syscall.Syscall6(syscall.SYS_MMAP, addr, length, prot, flags, fd, uintptr(offset))
-	return addr, err
+	switch runtime.GOARCH {
+	case `amd64`:
+		addr, _, err := syscall.Syscall6(syscall.SYS_MMAP, addr, length, prot, flags, fd, uintptr(offset))
+		return addr, err
+	case `386`:
+		page := uintptr(offset / 4096)
+		if offset != int64(page)*4096 {
+			return 0, syscall.EINVAL
+		}
+		addr, _, err := syscall.Syscall6(syscall.SYS_MMAP2, addr, length, prot, flags, fd, page)
+		return addr, err
+	default:
+		return 0, syscall.EINVAL
+	}
 }
 
-func Map(addr uintptr, fd uintptr, offset, length int64, prot ProtFlags, flags MapFlags) (mmap, error) {
+// NOTE: NEW
+func mmap_at(addr uintptr, fd uintptr, offset, length int64, prot uint, flags uint) (mmap, error) {
 	if length == -1 {
 		var stat syscall.Stat_t
 		if err := syscall.Fstat(int(fd), &stat); err != nil {
@@ -38,51 +69,65 @@ func Map(addr uintptr, fd uintptr, offset, length int64, prot ProtFlags, flags M
 		return nil, err
 	}
 	mm := mmap{}
-
 	dh := (*reflect.SliceHeader)(unsafe.Pointer(&mm))
 	dh.Data = addr
-	dh.Len = int(length) // Hmmm.. truncating here feels like trouble.
+	dh.Len = int(length) // umm... truncating here feels like trouble??
 	dh.Cap = dh.Len
 	return mm, nil
 }
 
-
-func (mm mmap) Unmap() error {
-	rh := *(*reflect.SliceHeader)(unsafe.Pointer(&mm))
-	_, _, err := syscall.Syscall(syscall.SYS_MUNMAP, uintptr(rh.Data), uintptr(rh.Len), 0)
+// NOTE: NEW
+func (mm mmap) Munmap() {
+	dh := *(*reflect.SliceHeader)(unsafe.Pointer(&mm))
+	_, _, err := syscall.Syscall(syscall.SYS_MUNMAP, uintptr(dh.Data), uintptr(dh.Len), 0)
 	if err != 0 {
-		return err
+		panic(err)
 	}
-	return nil
 }
 
-func (mm mmap) Sync(flags SyncFlags) error {
+// NOTE: NEW
+func (mm mmap) Sync(flags int) {
 	rh := *(*reflect.SliceHeader)(unsafe.Pointer(&mm))
 	_, _, err := syscall.Syscall(syscall.SYS_MSYNC, uintptr(rh.Data), uintptr(rh.Len), uintptr(flags))
 	if err != 0 {
-		return err
+		panic(err)
 	}
-	return nil
 }
 
+// NOTE: NEW
+func (mm mmap) IsResident() ([]bool, error) {
+	sz := os.Getpagesize()                             // page size
+	re := make([]bool, (len(mmap)+sz-1)/sz)            // result
+	dh := *(*reflect.SliceHeader)(unsafe.Pointer(&mm)) // result data ptr
+	rh := *(*reflect.SliceHeader)(unsafe.Pointer(&re)) // result data header ptr
+	_, _, err := syscall.Syscall(syscall.SYS_MINCORE, uintptr(dh.Data), uintptr(dh.Len), uintptr(rh.Data))
+	for i := range re {
+		*(*uint8)(unsafe.Pointer(&re[i])) &= 1
+	}
+	if err != 0 {
+		return nil, err
+	}
+	return re, nil
+}
 
-
-
-func (mm mmap) Mlock() {
+// NOTE: NOT USED
+func (mm mmap) _Mlock() {
 	err := syscall.Mlock(mm)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func (mm mmap) Munlock() {
+// NOTE: NOT USED
+func (mm mmap) _Munlock() {
 	err := syscall.Munlock(mm)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func (mm mmap) Munmap() {
+// NOTE: DEPRECATED
+func (mm mmap) _Munmap() {
 	t1 := time.Now().UnixNano()
 	err := syscall.Munmap(mm)
 	t2 := time.Now().UnixNano()
@@ -93,7 +138,8 @@ func (mm mmap) Munmap() {
 	}
 }
 
-func (mm mmap) Flush() {
+// NOTE: DEPRECATED
+func (mm mmap) _Sync() {
 	_, _, err := syscall.Syscall(syscall.SYS_MSYNC,
 		uintptr(unsafe.Pointer(&mm[0])), uintptr(len(mm)),
 		uintptr(syscall.MS_ASYNC))
@@ -102,7 +148,8 @@ func (mm mmap) Flush() {
 	}
 }
 
-func (mm mmap) Mremap(size int) mmap {
+// NOTE: NOT USED
+func (mm mmap) _Mremap(size int) mmap {
 	fd := uintptr(unsafe.Pointer(&mm[0]))
 	err := syscall.Munmap(mm)
 	mm = nil
@@ -120,7 +167,8 @@ func (mm mmap) Mremap(size int) mmap {
 	return mm
 }
 
-/*func Open(path string) (*os.File, string, int) {
+// NOTE: NOT USED
+func _Open(path string) (*os.File, string, int) {
 	fd, err := os.OpenFile(path, syscall.O_RDWR|syscall.O_CREAT|syscall.O_APPEND, 0644)
 	if err != nil {
 		panic(err)
@@ -132,7 +180,8 @@ func (mm mmap) Mremap(size int) mmap {
 	return fd, sanitize(fi.Name()), int(fi.Size())
 }
 
-func sanitize(path string) string {
+// NOTE: NOT USED
+func _sanitize(path string) string {
 	if path[len(path)-1] == '/' {
 		return path[:len(path)-1]
 	}
@@ -140,7 +189,7 @@ func sanitize(path string) string {
 		return path[:x]
 	}
 	return path
-}*/
+}
 
 func align(size int) int {
 	if size > 0 {
@@ -157,14 +206,15 @@ func resize(fd uintptr, size int) int {
 	return size
 }
 
-// func
-
-//  works but not preforment keeping for reference
-
-/*func (mm mmap) Len() int {
+/*
+// NOTE: WORKS BUT NOT PERFORMANT FOR KEEPING REFERENCE
+func (mm mmap) Len() int {
 	return len(mm) / page
 }
+*/
 
+/*
+// NOTE: WORKS BUT NOT PERFORMANT FOR KEEPING REFERENCE
 func (mm mmap) Less(i, j int) bool {
 	pi, pj := i*page, j*page
 	if mm[pi] == 0x00 {
@@ -179,10 +229,14 @@ func (mm mmap) Less(i, j int) bool {
 	return bytes.Compare(mm[pi:pi+page], mm[pj:pj+page]) == -1
 
 }
+*/
 
+/*
+// NOTE: WORKS BUT NOT PERFORMANT FOR KEEPING REFERENCE
 func (mm mmap) Swap(i, j int) {
 	pi, pj := i*page, j*page
 	copy(temp, mm[pi:pi+page])
 	copy(mm[pi:pi+page], mm[pj:pj+page])
 	copy(mm[pj:pj+page], temp)
-}*/
+}
+*/
