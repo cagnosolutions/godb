@@ -44,7 +44,7 @@ func (e *engine) open(path string) (bool, error) {
 	if err != nil && !os.IsExist(err) {
 		fdstat = true
 		dirs, _ := filepath.Split(path)
-		err = os.MkdirAll(dirs, 0755)
+		err = os.MkdirAll(dirs, 0755) // 0800
 		if err != nil {
 			return fdstat, err
 		}
@@ -60,7 +60,7 @@ func (e *engine) open(path string) (bool, error) {
 		}
 	}
 	// existing
-	fd, err := os.OpenFile(path+`.db`, os.O_RDWR|os.O_APPEND, 0666)
+	fd, err := os.OpenFile(path+`.db`, os.O_RDWR|os.O_APPEND, 0666) // 0800
 	if err != nil {
 		return fdstat, err
 	}
