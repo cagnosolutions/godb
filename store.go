@@ -3,6 +3,7 @@ package godb
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -26,6 +27,8 @@ type Store interface {
 	func (s *Store) Sync()
 }
 */
+
+var ErrPageSize = errors.New("val too large for current page/block size")
 
 type Store struct {
 	*store
@@ -94,7 +97,7 @@ func openStore(path string) (*store, error) {
 }
 
 // NOTE: WORK IN PROGRESS...
-func (s *store) Cmd(str string, ptr ...interface{}) error {
+/*func (s *store) Cmd(str string, ptr ...interface{}) error {
 	var obj interface{}
 	if len(ptr) > 0 {
 		obj = ptr[0]
@@ -117,6 +120,19 @@ func (s *store) Cmd(str string, ptr ...interface{}) error {
 		return fmt.Errorf("val is not a string")
 	}
 	return nil
+}*/
+
+func (s *store) growPageSizeOnDisk(size int) {
+
+}
+
+// aligh
+func align(size int) int {
+	pg := (1 << 12) // 4k
+	if size > 0 {
+		return (size + pg - 1) &^ (pg - 1)
+	}
+	return pg
 }
 
 func (s *store) Add(key, val interface{}) error {
@@ -131,7 +147,11 @@ func (s *store) Add(key, val interface{}) error {
 		return fmt.Errorf("store[add]: error while attempting to marshal -> %q", err)
 	}
 	if err := verify(k, v); err != nil {
-		return fmt.Errorf("store[add]: error while doing bounds check -> %q", err)
+		if err != ErrPageSize {
+			return fmt.Errorf("store[add]: error while doing bounds check -> %q", err)
+		}
+		// handle page grow
+		s.growPageSizeOnDisk()
 	}
 	if err := s.idx.add(k, v); err != nil {
 		return fmt.Errorf("store[add]: error while adding to index -> %q", err)
@@ -310,7 +330,9 @@ func verify(key, val []byte) error {
 	}
 	// val bounds check
 	if len(val) > maxVal {
-		return fmt.Errorf("store[verify]: val exceeds maximum val length of %d bytes, by %d bytes\n", maxVal, len(val)-maxVal)
+		//return fmt.Errorf("store[verify]: val exceeds maximum val length of %d bytes, by %d bytes\n", maxVal, len(val)-maxVal)
+		// trigger page/block grow
+		return ErrPageSize
 	}
 	// passed bounds check, no errors so return nil
 	return nil

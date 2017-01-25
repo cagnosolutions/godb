@@ -84,6 +84,13 @@ func (e *engine) open(path string) (bool, error) {
 	// map file into virtual address space and set up engine
 	e.file = fd
 	e.data = Mmap(fd, 0, int(info.Size()))
+
+	// read meta file and set page/block size
+	info, err = os.Stat(path + `.ix`)
+	if err != nil {
+		return fdstat, err
+	}
+	page = int(info.Size())
 	// there were no errors, so return mapped size and a nil error
 	return fdstat, nil
 }

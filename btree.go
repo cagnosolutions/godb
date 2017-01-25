@@ -9,7 +9,7 @@ import (
 const M = 128
 
 // database btree interface
-type dbBTree interface {
+/*type dbBTree interface {
 	open(path string) error
 	load(key []byte, blk *block) error
 	has(key []byte) bool
@@ -18,7 +18,7 @@ type dbBTree interface {
 	get(key []byte) ([]byte, error)
 	del(key []byte) error
 	close() error
-}
+}*/
 
 // btree is a b+tree implementation
 type btree struct {
