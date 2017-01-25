@@ -180,15 +180,12 @@ func _sanitize(path string) string {
 	return size
 }*/
 
-/*
-// NOTE: WORKS BUT NOT PERFORMANT FOR KEEPING REFERENCE
+/*// NOTE: WORKS BUT NOT PERFORMANT FOR KEEPING REFERENCE
 func (mm mmap) Len() int {
 	return len(mm) / page
-}
-*/
+}*/
 
-/*
-// NOTE: WORKS BUT NOT PERFORMANT FOR KEEPING REFERENCE
+/*// NOTE: WORKS BUT NOT PERFORMANT FOR KEEPING REFERENCE
 func (mm mmap) Less(i, j int) bool {
 	pi, pj := i*page, j*page
 	if mm[pi] == 0x00 {
@@ -205,12 +202,10 @@ func (mm mmap) Less(i, j int) bool {
 }
 */
 
-/*
-// NOTE: WORKS BUT NOT PERFORMANT FOR KEEPING REFERENCE
+/*// NOTE: WORKS BUT NOT PERFORMANT FOR KEEPING REFERENCE
 func (mm mmap) Swap(i, j int) {
 	pi, pj := i*page, j*page
 	copy(temp, mm[pi:pi+page])
 	copy(mm[pi:pi+page], mm[pj:pj+page])
 	copy(mm[pj:pj+page], temp)
-}
-*/
+}*/

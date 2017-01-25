@@ -8,14 +8,13 @@ import (
 	"syscall"
 )
 
-const (
-	page = 1 << 12       //   4 KB
-	slab = (1 << 19) * 8 // 512 KB * 8 == 4 MB
+var (
+	page  = (1 << 12)     //   4 KB
+	slab  = (1 << 19) * 8 // 512 KB * 8 == 4 MB
+	empty = make([]byte, page, page)
 )
 
-var empty = make([]byte, page, page)
-
-// database engine interface
+/*// database engine interface
 type dbEngine interface {
 	open(path string) (int, error)    // return size of open mapped file or an error encountered while opening engine
 	addRecord(r *record) (int, error) // return a block page offset or non-nil error if there is an issue growing the file
@@ -24,12 +23,26 @@ type dbEngine interface {
 	delRecord(k int) error            // return a non-nil error if offset is outside of mapped reigon
 	grow() error                      // return a non-nil error if there was an issue growing the file
 	close() error                     // return any errors encountered while closing the engine
-}
+}*/
 
 // database engine
 type engine struct {
 	file *os.File
 	data mmap
+}
+
+func createEmptyFile(path string, size int) error {
+	fd, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	if err = fd.Truncate(int64(size)); err != nil {
+		return err
+	}
+	if err = fd.Close(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (e *engine) open(path string) (bool, error) {
@@ -48,14 +61,14 @@ func (e *engine) open(path string) (bool, error) {
 		if err != nil {
 			return fdstat, err
 		}
-		fd, err := os.Create(path + `.db`)
+		// create new database file
+		err = createEmptyFile(path+`.db`, slab)
 		if err != nil {
 			return fdstat, err
 		}
-		if err = fd.Truncate(int64(slab)); err != nil {
-			return fdstat, err
-		}
-		if err = fd.Close(); err != nil {
+		// create new meta file
+		err = createEmptyFile(path+`.ix`, page)
+		if err != nil {
 			return fdstat, err
 		}
 	}
