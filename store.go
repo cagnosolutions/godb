@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -78,6 +79,7 @@ func (s *Store) Sync() {
 }
 
 type store struct {
+	dsn string
 	idx *btree
 	buf *bytes.Buffer
 	sync.RWMutex
@@ -89,6 +91,7 @@ func openStore(path string) (*store, error) {
 		return nil, err
 	}
 	st := &store{
+		dsn: path,
 		idx: idx,
 		buf: bytes.NewBuffer(make([]byte, maxKey, maxKey)),
 	}
@@ -122,17 +125,60 @@ func openStore(path string) (*store, error) {
 	return nil
 }*/
 
-func (s *store) growPageSizeOnDisk(size int) {
-
+func (s *store) growPageSizeOnDisk(valsz int) error {
+	// new page size
+	ps := align(valsz)
+	// create new index using new page size
+	if err := createEmptyFile(s.dsn+`_.ix`, ps); err != nil {
+		return err
+	}
+	// new file size
+	fs := s.idx.count * ps
+	// create new file using new page size * number of current records
+	if err := createEmptyFile(s.dsn+`_.db`, fs); err != nil {
+		return err
+	}
+	st, err := openStore(s.dsn + `_`)
+	if err != nil {
+		// something went wrong; clean up temp files
+		if err := os.Remove(s.dsn + `_.ix`); err != nil {
+			return err
+		}
+		if err := os.Remove(s.dsn + `_.db`); err != nil {
+			return err
+		}
+		return err
+	}
+	// iterate memory mapped records, add them to the new store
+	for pos := 0; true; pos++ {
+		rec, err := s.idx.ngin.getRecord(pos)
+		if err != nil {
+			// if record is empty continue (skip), otherwise return err
+			if rec == nil {
+				continue
+			}
+			return err
+		}
+		// no errors, so add record directly to the new store's engine (ignore page offset addRecord returns)
+		_, err := st.idx.ngin.addRecord(rec)
+		if err != nil {
+			return err
+		}
+	}
+	// close new store so everything syncs
+	if err := st.Close(); err != nil {
+		return err
+	}
+	return nil
+	// next remove existing store files, and rename new store
 }
 
-// aligh
+// align to nearest 4KB chunk
 func align(size int) int {
-	pg := (1 << 12) // 4k
 	if size > 0 {
-		return (size + pg - 1) &^ (pg - 1)
+		return (size + (1 << 12) - 1) &^ ((1 << 12) - 1)
 	}
-	return pg
+	return 1 << 12 // 4KB
 }
 
 func (s *store) Add(key, val interface{}) error {
@@ -151,7 +197,9 @@ func (s *store) Add(key, val interface{}) error {
 			return fmt.Errorf("store[add]: error while doing bounds check -> %q", err)
 		}
 		// handle page grow
-		s.growPageSizeOnDisk()
+		if err := s.growPageSizeOnDisk(); err != nil {
+			return err
+		}
 	}
 	if err := s.idx.add(k, v); err != nil {
 		return fmt.Errorf("store[add]: error while adding to index -> %q", err)
