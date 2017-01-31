@@ -138,8 +138,10 @@ func (s *store) growPageSizeOnDisk(valsz int) error {
 	if err := createEmptyFile(s.dsn+`_.db`, fs); err != nil {
 		return err
 	}
-	st, err := openStore(s.dsn + `_`)
-	if err != nil {
+	// create new engine
+	en := new(engine)
+	// open path to new "grown" engine
+	if _, err := en.open(s.dsn + `_`); err != nil {
 		// something went wrong; clean up temp files
 		if err := os.Remove(s.dsn + `_.ix`); err != nil {
 			return err
@@ -151,7 +153,7 @@ func (s *store) growPageSizeOnDisk(valsz int) error {
 	}
 	// iterate memory mapped records, add them to the new store
 	for pos := 0; true; pos++ {
-		rec, err := s.idx.ngin.getRecord(pos)
+		rec, err := en.getRecord(pos)
 		if err != nil {
 			// if record is empty continue (skip), otherwise return err
 			if rec == nil {
@@ -159,18 +161,40 @@ func (s *store) growPageSizeOnDisk(valsz int) error {
 			}
 			return err
 		}
-		// no errors, so add record directly to the new store's engine (ignore page offset addRecord returns)
-		_, err := st.idx.ngin.addRecord(rec)
-		if err != nil {
+		// no errors, so add record directly to the new engine (ignore page offset addRecord returns)
+		if _, err := en.addRecord(rec); err != nil {
 			return err
 		}
 	}
 	// close new store so everything syncs
-	if err := st.Close(); err != nil {
+	if err := en.close(); err != nil {
 		return err
 	}
+	// close the existing store
+	if err := s.Close(); err != nil {
+		return err
+	}
+	// next remove existing store files
+	if err := os.Remove(s.dsn + `.ix`); err != nil {
+		return err
+	}
+	if err := os.Remove(s.dsn + `.db`); err != nil {
+		return err
+	}
+	// rename new engine files
+	if err := os.Rename(s.dsn+`_.ix`, s.dsn+`.ix`); err != nil {
+		return err
+	}
+	if err := os.Rename(s.dsn+`_.db`, s.dsn+`.db`); err != nil {
+		return err
+	}
+	// reopen current store now utilizing new "grown" engine
+	s, err := openStore(s.dsn)
+	if err != nil {
+		return err
+	}
+	// everything went fine, so return a nil error
 	return nil
-	// next remove existing store files, and rename new store
 }
 
 // align to nearest 4KB chunk
