@@ -61,7 +61,7 @@ func NewJob(i int) *Job {
 		Id:   int64(i),
 		Name: "new job #" + n,
 	}
-	for i := 0; i < 7; i++ {
+	for i := 0; i < 5; i++ {
 		j.Materials = append(j.Materials, NewMaterial(i))
 		j.Total += j.Materials[i].GetPrice()
 	}
@@ -93,7 +93,7 @@ func NewMaterial(i int) *Material {
 }
 
 // simple orm-ish util to create a new user instance
-func NewUser(i int) *User {
+func NewUser(i int, ii int) *User {
 	n, p := strconv.Itoa(i), strconv.Itoa(i*i)
 	u := &User{
 		Id: int64(i),
@@ -110,11 +110,11 @@ func NewUser(i int) *User {
 		Active:    i%2 == 0,
 		Age:       i,
 	}
-	for j, loop := 0, true; loop && j < 10; j++ {
+	for j := 0; j < ii; j++ {
 		u.Addresses = append(u.Addresses, NewAddress(i, i*3))
 		u.Jobs = append(u.Jobs, NewJob(i))
 		if !u.Active {
-			loop = false
+			break
 		}
 	}
 	return u
@@ -124,7 +124,13 @@ func NewUser(i int) *User {
 func NewAddress(i, ii int) *Address {
 	n := strconv.Itoa(i)
 	return &Address{
-		Id:     time.Now().UnixNano(),
+		Id: time.Now().UnixNano(),
+		Type: func() addrType {
+			if i%2 == 0 {
+				return BILL
+			}
+			return SHIP
+		}(),
 		Street: "10" + n + " Somewhere Lane",
 		City:   "Awesome City " + n,
 		State: func() string {
@@ -171,7 +177,7 @@ func add() {
 	// generate user data
 	log.Printf("Generating user data...\n")
 	for i := 0; i < COUNT; i++ {
-		data = append(data, NewUser(r.Get()))
+		data = append(data, NewUser(r.Get(), 3))
 	}
 
 	opn() // open store
