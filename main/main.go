@@ -177,7 +177,7 @@ func add() {
 	// generate user data
 	log.Printf("Generating user data...\n")
 	for i := 0; i < COUNT; i++ {
-		data = append(data, NewUser(r.Get(), 3))
+		data = append(data, NewUser(r.Get(), 10))
 	}
 
 	opn() // open store

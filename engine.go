@@ -2,7 +2,10 @@ package godb
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -91,6 +94,9 @@ func (e *engine) open(path string) (bool, error) {
 	}
 	// set page/block size
 	page = int(info.Size())
+	log.Println("page size is:", page)
+	// set / reassign maxVal size
+	maxVal = page - maxKey - 1
 	// there were no errors, so return mapped size and a nil error
 	return fdstat, nil
 }
@@ -142,6 +148,9 @@ func (e *engine) setRecord(k int, r *record) error {
 	return nil
 }
 
+var ErrEmptyRecord error = errors.New("engine: empty record found")
+var ErrEngineEOF error = io.EOF
+
 // return a record at provided offset, assuming one exists
 // return a non-nil error if offset is outside of mapped reigon
 func (e *engine) getRecord(k int) (*record, error) {
@@ -150,7 +159,7 @@ func (e *engine) getRecord(k int) (*record, error) {
 	// do a bounds check; if outside of mapped reigon...
 	if o+page > len(e.data) {
 		// ...return an error
-		return nil, fmt.Errorf("engine[get]: cannot return record at block %d (offset %d)\n", k, o)
+		return nil, ErrEngineEOF //fmt.Errorf("engine[get]: cannot return record at block %d (offset %d)\n", k, o)
 	}
 	// create record to return
 	r := new(record)
@@ -160,7 +169,7 @@ func (e *engine) getRecord(k int) (*record, error) {
 		return r, nil
 	}
 	// otherwise, return empty record, with an error
-	return r, fmt.Errorf("engine[get]: empty record found at block %d (offset %d)", k, o)
+	return r, ErrEmptyRecord //fmt.Errorf("engine[get]: empty record found at block %d (offset %d)", k, o)
 }
 
 func (e *engine) getRecordKey(k int) ([]byte, error) {

@@ -153,13 +153,13 @@ func (s *store) growPageSizeOnDisk(valsz int) error {
 	}
 	// iterate memory mapped records, add them to the new store
 	for pos := 0; true; pos++ {
-		rec, err := en.getRecord(pos)
+		rec, err := s.idx.ngin.getRecord(pos)
 		if err != nil {
-			// if record is empty continue (skip), otherwise return err
-			if rec == nil {
+			if err == ErrEngineEOF {
+				break
+			} else if err == ErrEmptyRecord {
 				continue
 			}
-			return err
 		}
 		// no errors, so add record directly to the new engine (ignore page offset addRecord returns)
 		if _, err := en.addRecord(rec); err != nil {
@@ -170,8 +170,8 @@ func (s *store) growPageSizeOnDisk(valsz int) error {
 	if err := en.close(); err != nil {
 		return err
 	}
-	// close the existing store
-	if err := s.Close(); err != nil {
+	// close the existing store's index
+	if err := s.idx.close(); err != nil {
 		return err
 	}
 	// next remove existing store files
@@ -189,8 +189,8 @@ func (s *store) growPageSizeOnDisk(valsz int) error {
 		return err
 	}
 	// reopen current store now utilizing new "grown" engine
-	s, err := openStore(s.dsn)
-	if err != nil {
+	s.idx = &btree{ngin: new(engine)}
+	if err := s.idx.open(s.dsn); err != nil {
 		return err
 	}
 	// everything went fine, so return a nil error
