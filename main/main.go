@@ -11,37 +11,91 @@ import (
 )
 
 const (
-	COUNT = 50000
+	COUNT = 10000
 	DEBUG = false
 )
 
 // user struct
 type User struct {
-	Id        int64   `msgpack:"id"`
-	Role      string  `msgpack:"role"`
-	Email     string  `msgpack:"email,omitempty"`
-	Password  string  `msgpack:"password,omitempty"`
-	FirstName string  `msgpack:"firstName,omitempty"`
-	LastName  string  `msgpack:"lastName,omitempty"`
-	Active    bool    `msgpack:"active"`
-	Age       int     `msgpack:"age,omitempty"`
-	Modified  int64   `msgpack:"modified,omitempty"`
-	Billing   Address `msgpack:"billing,omitempty"`
+	Id        int64      `msgpack:"id"`
+	Role      string     `msgpack:"role"`
+	Email     string     `msgpack:"email,omitempty"`
+	Password  string     `msgpack:"password,omitempty"`
+	FirstName string     `msgpack:"firstName,omitempty"`
+	LastName  string     `msgpack:"lastName,omitempty"`
+	Active    bool       `msgpack:"active"`
+	Age       int        `msgpack:"age,omitempty"`
+	Modified  int64      `msgpack:"modified,omitempty"`
+	Addresses []*Address `msgpack:"addresses,omitempty"`
+	Jobs      []*Job     `msgpack:"jobs"`
 }
+
+type addrType byte
+
+const (
+	BILL addrType = iota
+	SHIP
+)
 
 // address struct
 type Address struct {
-	Id     int64  `msgpack:"id"`
-	Street string `msgpack:"street,omitempty"`
-	City   string `msgpack:"city,omitempty"`
-	State  string `msgpack:"state,omitempty"`
-	Zip    int    `msgpack:"zip,omitempty"`
+	Id     int64    `msgpack:"id"`
+	Type   addrType `msgpack:"type"`
+	Street string   `msgpack:"street,omitempty"`
+	City   string   `msgpack:"city,omitempty"`
+	State  string   `msgpack:"state,omitempty"`
+	Zip    int      `msgpack:"zip,omitempty"`
+}
+
+// job struct
+type Job struct {
+	Id        int64       `msgpack:"id"`
+	Name      string      `msgpack:"name"`
+	Materials []*Material `msgpack:"materials"`
+	Total     float32     `msgpack:"total"`
+}
+
+func NewJob(i int) *Job {
+	n := strconv.Itoa(i)
+	j := &Job{
+		Id:   int64(i),
+		Name: "new job #" + n,
+	}
+	for i := 0; i < 7; i++ {
+		j.Materials = append(j.Materials, NewMaterial(i))
+		j.Total += j.Materials[i].GetPrice()
+	}
+	return j
+}
+
+// material struct
+type Material struct {
+	Id    int64   `msgpack:"id"`
+	Name  string  `msgpack:"name"`
+	Desc  string  `msgpack:"description"`
+	Cost  float32 `msgpack:"cost"`
+	Price float32 `msgpack:"price"`
+}
+
+func (m *Material) GetPrice() float32 {
+	return m.Price
+}
+
+func NewMaterial(i int) *Material {
+	n := strconv.Itoa(i)
+	return &Material{
+		Id:    int64(i),
+		Name:  "material-" + n,
+		Desc:  "a lengthy description of 'material #" + n + "'",
+		Cost:  float32(i) + float32(i+1/36),
+		Price: float32(i) + float32(i+1/25),
+	}
 }
 
 // simple orm-ish util to create a new user instance
 func NewUser(i int) *User {
 	n, p := strconv.Itoa(i), strconv.Itoa(i*i)
-	return &User{
+	u := &User{
 		Id: int64(i),
 		Role: func() string {
 			if i%2 == 0 {
@@ -55,8 +109,15 @@ func NewUser(i int) *User {
 		LastName:  "LastName-" + n,
 		Active:    i%2 == 0,
 		Age:       i,
-		Billing:   *NewAddress(i, i*3),
 	}
+	for j, loop := 0, true; loop && j < 10; j++ {
+		u.Addresses = append(u.Addresses, NewAddress(i, i*3))
+		u.Jobs = append(u.Jobs, NewJob(i))
+		if !u.Active {
+			loop = false
+		}
+	}
+	return u
 }
 
 // simple orm-ish util to create a new address instance

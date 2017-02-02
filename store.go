@@ -221,7 +221,7 @@ func (s *store) Add(key, val interface{}) error {
 			return fmt.Errorf("store[add]: error while doing bounds check -> %q", err)
 		}
 		// handle page grow
-		if err := s.growPageSizeOnDisk(); err != nil {
+		if err := s.growPageSizeOnDisk(len(v)); err != nil {
 			return err
 		}
 	}
