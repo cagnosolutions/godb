@@ -25,4 +25,5 @@ _testmain.go
 
 # Main stuff
 *.db
+*.ix
 main/main
