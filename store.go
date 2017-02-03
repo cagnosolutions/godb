@@ -134,6 +134,9 @@ func (s *store) growPageSizeOnDisk(valsz int) error {
 	}
 	// new file size
 	fs := s.idx.count * ps
+	if fs < slab*2 {
+		fs = slab * 2
+	}
 	// create new file using new page size * number of current records
 	if err := createEmptyFile(s.dsn+`_.db`, fs); err != nil {
 		return err
@@ -216,7 +219,7 @@ func (s *store) Add(key, val interface{}) error {
 	if err != nil {
 		return fmt.Errorf("store[add]: error while attempting to marshal -> %q", err)
 	}
-	if err := verify(k, v); err != nil {
+	if err := s.verify(k, v); err != nil {
 		if err != ErrPageSize {
 			return fmt.Errorf("store[add]: error while doing bounds check -> %q", err)
 		}
@@ -242,7 +245,7 @@ func (s *store) Set(key, val interface{}) error {
 	if err != nil {
 		return fmt.Errorf("store[set]: error while attempting to marshal -> %q", err)
 	}
-	if err := verify(k, v); err != nil {
+	if err := s.verify(k, v); err != nil {
 		return fmt.Errorf("store[set]: error while doing bounds check -> %q", err)
 	}
 	if err := s.idx.set(k, v); err != nil {
@@ -395,13 +398,13 @@ func (s *store) Close() error {
 }
 
 // do verify by doing bounds check
-func verify(key, val []byte) error {
+func (s *store) verify(key, val []byte) error {
 	// key bounds check
 	if len(key) > maxKey {
 		return fmt.Errorf("store[verify]: key exceeds maximum key length of %d bytes, by %d bytes\n", maxKey, len(key)-maxKey)
 	}
 	// val bounds check
-	if len(val) > maxVal {
+	if len(val) > s.idx.ngin.maxVal {
 		//return fmt.Errorf("store[verify]: val exceeds maximum val length of %d bytes, by %d bytes\n", maxVal, len(val)-maxVal)
 		// trigger page/block grow
 		return ErrPageSize

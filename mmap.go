@@ -1,11 +1,9 @@
 package godb
 
 import (
-	"fmt"
 	"os"
 	"reflect"
 	"syscall"
-	"time"
 	"unsafe"
 )
 
@@ -50,10 +48,10 @@ func mmap_at(addr uintptr, fd uintptr, offset, length int64, prot uint, flags ui
 // NOTE: NEW
 func (mm mmap) Munmap() {
 	dh := *(*reflect.SliceHeader)(unsafe.Pointer(&mm))
-	t1 := time.Now().UnixNano()
+	// t1 := time.Now().UnixNano()
 	_, _, err := syscall.Syscall(syscall.SYS_MUNMAP, uintptr(dh.Data), uintptr(dh.Len), 0)
-	t2 := time.Now().UnixNano()
-	fmt.Printf("syscall.Munmap(mm):\n\tnanoseconds: %d\n\tmicroseconds: %d\n\tmilliseconds: %d\n\n", t2-t1, (t2-t1)/1000, ((t2-t1)/1000)/1000)
+	// t2 := time.Now().UnixNano()
+	// fmt.Printf("syscall.Munmap(mm):\n\tnanoseconds: %d\n\tmicroseconds: %d\n\tmilliseconds: %d\n\n", t2-t1, (t2-t1)/1000, ((t2-t1)/1000)/1000)
 	if err != 0 {
 		panic(err)
 	}

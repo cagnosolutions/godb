@@ -96,7 +96,7 @@ func NewMaterial(i int) *Material {
 func NewUser(i int, ii int) *User {
 	n, p := strconv.Itoa(i), strconv.Itoa(i*i)
 	u := &User{
-		Id: int64(i),
+		Id: genId(),
 		Role: func() string {
 			if i%2 == 0 {
 				return "ROLE_ADMIN"
@@ -192,7 +192,6 @@ func add() {
 			fmt.Println(i + 1)
 		}
 	}
-
 	cls() // close store
 }
 
@@ -314,4 +313,8 @@ func (r *RandInt) Get() int {
 		}
 	}
 	return n
+}
+
+func genId() int64 {
+	return time.Now().UnixNano()
 }

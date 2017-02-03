@@ -3,9 +3,9 @@ package godb
 import "bytes"
 
 var (
-	maxKey      = 24
-	maxVal      = page - maxKey - 1 // (-1 is for EOF) 4071
-	eofVal byte = 0xc1              // not currently used in the msgpack spec, so we use it for our EOF denotion
+	maxKey = 24
+	//maxVal      = e.page - maxKey - 1 // (-1 is for EOF) 4071
+	eofVal byte = 0xc1 // not currently used in the msgpack spec, so we use it for our EOF denotion
 )
 
 // database record interface
