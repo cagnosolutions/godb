@@ -134,8 +134,8 @@ func (s *store) growPageSizeOnDisk(valsz int) error {
 	}
 	// new file size
 	fs := s.idx.count * ps
-	if fs < slab*2 {
-		fs = slab * 2
+	if fs < 1024*ps {
+		fs = 1024 * ps
 	}
 	// create new file using new page size * number of current records
 	if err := createEmptyFile(s.dsn+`_.db`, fs); err != nil {

@@ -96,7 +96,7 @@ func NewMaterial(i int) *Material {
 func NewUser(i int, ii int) *User {
 	n, p := strconv.Itoa(i), strconv.Itoa(i*i)
 	u := &User{
-		Id: genId(),
+		Id: int64(i),
 		Role: func() string {
 			if i%2 == 0 {
 				return "ROLE_ADMIN"
@@ -177,7 +177,7 @@ func add() {
 	// generate user data
 	log.Printf("Generating user data...\n")
 	for i := 0; i < COUNT; i++ {
-		data = append(data, NewUser(r.Get(), 10))
+		data = append(data, NewUser(r.Get(), 30))
 	}
 
 	opn() // open store
