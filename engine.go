@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -16,17 +15,6 @@ var (
 	slab  = (1 << 19) * 8 // 512 KB * 8 == 4 MB
 	empty = make([]byte, page, page)
 )
-
-/*// database engine interface
-type dbEngine interface {
-	open(path string) (int, error)    // return size of open mapped file or an error encountered while opening engine
-	addRecord(r *record) (int, error) // return a block page offset or non-nil error if there is an issue growing the file
-	setRecord(k int, r *record) error // return a non-nil error if offset is outside of mapped reigon
-	getRecord(k int) (*record, error) // return a record at provided offset or a non-nil error if offset is outside of mapped reigon
-	delRecord(k int) error            // return a non-nil error if offset is outside of mapped reigon
-	grow() error                      // return a non-nil error if there was an issue growing the file
-	close() error                     // return any errors encountered while closing the engine
-}*/
 
 // database engine
 type engine struct {
@@ -92,11 +80,12 @@ func (e *engine) open(path string) (bool, error) {
 	if err != nil {
 		return fdstat, err
 	}
-	// set page/block size
+	// set / reassign page size
 	page = int(info.Size())
-	log.Println("page size is:", page)
 	// set / reassign maxVal size
 	maxVal = page - maxKey - 1
+	// set / reassign empty block
+	empty = make([]byte, page, page)
 	// there were no errors, so return mapped size and a nil error
 	return fdstat, nil
 }

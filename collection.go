@@ -190,8 +190,9 @@ func (c *Collection) Add(key, val interface{}) error {
 			if err := c.growPageSizeOnDisk(len(v)); err != nil {
 				return logger(err)
 			}
+		} else {
+			return logger(err)
 		}
-		return logger(err)
 	}
 	c.Lock()
 	err = c.st.add(k, v)
@@ -208,8 +209,9 @@ func (c *Collection) Set(key, val interface{}) error {
 			if err := c.growPageSizeOnDisk(len(v)); err != nil {
 				return logger(err)
 			}
+		} else {
+			return logger(err)
 		}
-		return logger(err)
 	}
 	c.Lock()
 	err = c.st.set(k, v)
@@ -256,6 +258,7 @@ func (c *Collection) Query(qry string, ptr interface{}) error {
 func (c *Collection) Count() int {
 	c.RLock()
 	n := c.st.count()
+	log.Println(n)
 	c.RUnlock()
 	return n
 }
