@@ -338,6 +338,8 @@ func (s *store) Query(qry string, ptr interface{}) error {
 	var buf *bytes.Reader
 	qrys := strings.Split(qry, "&&")
 
+	matches := 0
+
 	// iterate the index by record, skipping empty ones
 	for rec := range s.idx.nextRecord() {
 		if rec == nil {
@@ -355,13 +357,29 @@ func (s *store) Query(qry string, ptr interface{}) error {
 
 		// found a match!
 		if ok {
-			// new pointer to refect value of single ptr type
-			zro := reflect.Indirect(reflect.New(typ.Elem()))
-			if err := dec.DecodeValue(zro); err != nil {
-				return err
+			var zro reflect.Value
+			if typ.Kind() == reflect.Slice {
+
+				// new pointer to refect value of single ptr type
+				zro = reflect.Indirect(reflect.New(typ.Elem()))
+				// append matched value to ptr value
+				if err := dec.DecodeValue(zro); err != nil {
+					return err
+				}
+				val.Set(reflect.Append(val, zro))
+			} else {
+				matches++
+				if matches > 1 {
+					return errors.New("too many matches")
+				}
+				zro = reflect.Indirect(reflect.New(typ))
+
+				if err := dec.DecodeValue(zro); err != nil {
+					return err
+				}
+
 			}
-			// append matched value to ptr value
-			val.Set(reflect.Append(val, zro))
+
 		}
 	}
 	return nil
