@@ -42,9 +42,29 @@ func (db *DB) Delete(qry string) error {
     return nil
 }
 
-func assign(ptr interface{}) error {
+var (
+	ErrKind error = errors.New("invalid kind")
+	ErrType error = errors.New("invalid type")
+)
 
-    return nil
+func assign(v interface{}) error {
+	val := reflect.ValueOf(v)
+	if val.Kind() != reflect.Ptr {
+		return ErrKind
+	}
+	val = val.Elem()
+	if val.Kind() != reflect.Struct {
+		return ErrKind
+	}
+	typ := val.Type()
+	for i := 0; i < val.NumField(); i++ {
+		f := typ.Field(i)
+		fmt.Printf("%d: %s %s = %v\n", i,
+			f.Name, f.Type, f.Tag)
+	}
+
+	fmt.Println(val, typ)
+	return nil
 }
 
 func CloseDB(db *DB) error {
