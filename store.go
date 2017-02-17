@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -322,6 +323,12 @@ func (s *store) QueryOne(qry string, ptr interface{}) error {
 }
 
 func (s *store) Query(qry string, ptr interface{}) error {
+
+	if strings.HasPrefix(qry, "id") && !strings.Contains(qry, "&&") {
+		key, _ := strconv.Atoi(strings.Fields(qry)[2])
+		fmt.Println(key)
+		return s.Get(key, ptr)
+	}
 
 	// type checking for pointer
 	typ := reflect.TypeOf(ptr)

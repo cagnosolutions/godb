@@ -164,7 +164,7 @@ func main() {
 	var users []User
 
 	t1 := time.Now().UnixNano()
-	err := usr.Get(6846, &user)
+	err := usr.Get(9062, &user)
 	t2 := time.Now().UnixNano()
 	if err != nil {
 		log.Println(err)
@@ -172,15 +172,7 @@ func main() {
 	fmt.Printf("%d nanoseconds, %d microseconds, %d milliseconds\n", t2-t1, (t2-t1)/1000, ((t2-t1)/1000)/1000)
 
 	t1 = time.Now().UnixNano()
-	err = usr.Query("id == 6846", &users)
-	t2 = time.Now().UnixNano()
-	if err != nil {
-		log.Println(err)
-	}
-	fmt.Printf("%d nanoseconds, %d microseconds, %d milliseconds\n", t2-t1, (t2-t1)/1000, ((t2-t1)/1000)/1000)
-
-	t1 = time.Now().UnixNano()
-	err = usr.Query("role == ROLE_USER", &user)
+	err = usr.Query("id == 9062", &users)
 	t2 = time.Now().UnixNano()
 	if err != nil {
 		log.Println(err)
@@ -190,7 +182,7 @@ func main() {
 	fmt.Println()
 
 	t1 = time.Now().UnixNano()
-	err = usr.Get(9062, &user)
+	err = usr.Get(6846, &user)
 	t2 = time.Now().UnixNano()
 	if err != nil {
 		log.Println(err)
@@ -198,7 +190,15 @@ func main() {
 	fmt.Printf("%d nanoseconds, %d microseconds, %d milliseconds\n", t2-t1, (t2-t1)/1000, ((t2-t1)/1000)/1000)
 
 	t1 = time.Now().UnixNano()
-	err = usr.Query("id == 9062", &users)
+	err = usr.Query("id == 6846", &user)
+	t2 = time.Now().UnixNano()
+	if err != nil {
+		log.Println(err)
+	}
+	fmt.Printf("%d nanoseconds, %d microseconds, %d milliseconds\n", t2-t1, (t2-t1)/1000, ((t2-t1)/1000)/1000)
+
+	t1 = time.Now().UnixNano()
+	err = usr.Query("email == user-6846-email@example.com", &user)
 	t2 = time.Now().UnixNano()
 	if err != nil {
 		log.Println(err)
