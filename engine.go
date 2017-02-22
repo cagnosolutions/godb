@@ -11,9 +11,9 @@ import (
 )
 
 var (
-	page  = (1 << 12)     //   4 KB
-	slab  = (1 << 19) * 8 // 512 KB * 8 == 4 MB
-	empty = make([]byte, page, page)
+	page  = (1 << 14)     // 16 KB
+	slab  = (1 << 21)     // 2 MB	
+empty = make([]byte, page, page)
 )
 
 // database engine
