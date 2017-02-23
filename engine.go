@@ -52,13 +52,13 @@ func (e *engine) open(path string) (bool, error) {
 		if err != nil {
 			return fdstat, err
 		}
-		// create new database file with initial size of 4MB
-		err = createEmptyFile(path+`.db`, (1 << 22))
+		// create new database file with initial size of 2MB
+		err = createEmptyFile(path+`.db`, (1 << 21))
 		if err != nil {
 			return fdstat, err
 		}
-		// create new meta file with initial record size of 4KB
-		err = createEmptyFile(path+`.ix`, (1 << 12))
+		// create new meta file with initial record size of 16KB
+		err = createEmptyFile(path+`.ix`, (1 << 14))
 		if err != nil {
 			return fdstat, err
 		}
