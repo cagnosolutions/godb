@@ -1,51 +1,48 @@
 package godb
 
 import (
-    "sync"
-    "log"
+	"errors"
+	"fmt"
+	"reflect"
+	"sync"
+	"time"
 )
 
+// errors
+const ErrKind error = errors.New("invalid kind: expected a pointer to a struct")
+
 type DB struct {
-    *store
-    sync.RWMutex
+	*store
+	sync.RWMutex
 }
 
-func OpenDB() *DB {
-    return &DB{
-        store : func() *store {
-            st, err := openStore()
-            if err != nil {
-                log.Fatal(err)
-            }
-            return st
-        }()
-    }
+func OpenDB() (*DB, error) {
+	st, err := openStore()
+	if err != nil {
+		return nil, err
+	}
+	return &DB{st}, nil
 }
 
 func (db *DB) Insert(ptr interface{}) error {
-    
-    return nil
+
+	return nil
 }
 
 func (db *DB) Return(qry string, ptr interface{}) error {
-    
-    return nil
+
+	return nil
 }
 
 func (db *DB) Update(qry string, ptr interface{}) error {
-    
-    return nil
+
+	return nil
 }
 
 func (db *DB) Delete(qry string) error {
-    
-    return nil
-}
 
-var (
-	ErrKind error = errors.New("invalid kind")
-	ErrType error = errors.New("invalid type")
-)
+	return nil
+}
 
 func assign(v interface{}) error {
 	val := reflect.ValueOf(v)
@@ -58,9 +55,12 @@ func assign(v interface{}) error {
 	}
 	typ := val.Type()
 	for i := 0; i < val.NumField(); i++ {
-		f := typ.Field(i)
-		fmt.Printf("%d: %s %s = %v\n", i,
-			f.Name, f.Type, f.Tag)
+		sf, vf := typ.Field(i), val.Field(i)
+		if tag, ok := sf.Tag.Lookup("db"); ok {
+			if tag == "_id" && vf.Kind() == reflect.Int && vf.CanSet() {
+				vf.SetInt(time.Now().UnixNano())
+			}
+		}
 	}
 
 	fmt.Println(val, typ)
@@ -68,6 +68,5 @@ func assign(v interface{}) error {
 }
 
 func CloseDB(db *DB) error {
-    return db.store.close()
+	return db.store.close()
 }
-

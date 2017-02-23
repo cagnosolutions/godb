@@ -2,17 +2,12 @@ package godb
 
 import "bytes"
 
-var (
-	maxKey      = 24
-	maxVal      = page - maxKey - 1 // (-1 is for EOF) 4071
-	eofVal byte = 0xc1              // not currently used in the msgpack spec, so we use it for our EOF denotion
-)
+const eofVal byte = 0xC1 // not currently use in the msgpack spec, so we use it for our record data EOF
 
-// database record interface
-type dbRecord interface {
-	key() []byte // return fixed length key (   24 bytes) from record data
-	val() []byte // return fixed length val (4096+ bytes) from the record data, excluding nil byte remainders
-}
+var (
+	maxKey = 24
+	maxVal = page - maxKey - 1 // (-1 is for EOF) 4071
+)
 
 // data record
 type record struct {
@@ -29,14 +24,14 @@ type record struct {
 }
 
 // create a pointer to a new record
-func newRecord(key, val []byte) *record {
+func newRecord(key, val []byte) (*record, error) {
 	return &record{append(key, append(val, eofVal)...)}
 }
 
-/*// return key from data record
+// return key from data record
 func (r *record) key() []byte {
 	return r.data[:maxKey]
-}*/
+}
 
 // return val from data record
 func (r *record) val() []byte {
