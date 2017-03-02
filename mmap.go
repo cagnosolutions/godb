@@ -3,9 +3,9 @@ package godb
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"syscall"
-	"time"
 	"unsafe"
 )
 
@@ -16,9 +16,7 @@ const (
 
 type mmap []byte
 
-// NOTE: UPDATED
 func Mmap(fd *os.File, off, len int) mmap {
-	//mm, err := syscall.Mmap(int(f.Fd()), int64(off), len, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
 	mm, err := mmap_at(0, fd.Fd(), int64(off), int64(len), PROT, FLAGS)
 	if err != nil {
 		panic(err)
@@ -26,7 +24,6 @@ func Mmap(fd *os.File, off, len int) mmap {
 	return mm
 }
 
-// NOTE: NEW
 func mmap_at(addr uintptr, fd uintptr, offset, length int64, prot uint, flags uint) (mmap, error) {
 	if length == -1 {
 		var stat syscall.Stat_t
@@ -47,19 +44,14 @@ func mmap_at(addr uintptr, fd uintptr, offset, length int64, prot uint, flags ui
 	return mm, nil
 }
 
-// NOTE: NEW
 func (mm mmap) Munmap() {
 	dh := *(*reflect.SliceHeader)(unsafe.Pointer(&mm))
-	t1 := time.Now().UnixNano()
 	_, _, err := syscall.Syscall(syscall.SYS_MUNMAP, uintptr(dh.Data), uintptr(dh.Len), 0)
-	t2 := time.Now().UnixNano()
-	fmt.Printf("syscall.Munmap(mm):\n\tnanoseconds: %d\n\tmicroseconds: %d\n\tmilliseconds: %d\n\n", t2-t1, (t2-t1)/1000, ((t2-t1)/1000)/1000)
 	if err != 0 {
 		panic(err)
 	}
 }
 
-// NOTE: NEW
 func (mm mmap) Sync() {
 	rh := *(*reflect.SliceHeader)(unsafe.Pointer(&mm))
 	_, _, err := syscall.Syscall(syscall.SYS_MSYNC, uintptr(rh.Data), uintptr(rh.Len), uintptr(syscall.MS_ASYNC))
@@ -68,7 +60,6 @@ func (mm mmap) Sync() {
 	}
 }
 
-// NOTE: NEW
 func (mm mmap) IsResident() ([]bool, error) {
 	sz := os.Getpagesize()                             // page size
 	re := make([]bool, (len(mm)+sz-1)/sz)              // result
@@ -121,6 +112,77 @@ func (mm mmap) _Sync() {
 		panic(err)
 	}
 }*/
+
+func (mm mmap) Fd() *os.File {
+	fd := uintptr(unsafe.Pointer(&mm[0]))
+
+}
+
+func Open(path string) (bool, error) {
+	// check to make sure engine is not already open
+	if e.file != nil {
+		// return an error if it is
+		return true, fmt.Errorf("engine[open]: engine is already open at path %q\n", path)
+	}
+	_, err := os.Stat(path + `.db`)
+	var fdstat bool
+	// new instance
+	if err != nil && !os.IsExist(err) {
+		fdstat = true
+		dirs, _ := filepath.Split(path)
+		err = os.MkdirAll(dirs, 0755) // 0800
+		if err != nil {
+			return fdstat, err
+		}
+		// create new database file with initial size of 2MB
+		err = createEmptyFile(path+`.db`, (1 << 21))
+		if err != nil {
+			return fdstat, err
+		}
+		// create new meta file with initial record size of 16KB
+		err = createEmptyFile(path+`.ix`, (1 << 14))
+		if err != nil {
+			return fdstat, err
+		}
+	}
+	// existing
+	fd, err := os.OpenFile(path+`.db`, os.O_RDWR|os.O_APPEND, 0666) // 0800
+	if err != nil {
+		return fdstat, err
+	}
+	info, err := fd.Stat()
+	if err != nil {
+		return fdstat, err
+	}
+	// map file into virtual address space and set up engine
+	e.file = fd
+	e.data = mmap(fd, 0, int(info.Size()))
+	// read meta file and set page/block size
+	info, err = os.Stat(path + `.ix`)
+	if err != nil {
+		return fdstat, err
+	}
+	// set / reassign page size
+	e.page = int(info.Size())
+	// set / reassign maxVal size
+	maxVal = page - maxKey - 1
+	// set / reassign empty block
+	e.zero = make([]byte, e.page)
+	// there were no errors, so return mapped size and a nil error
+	return fdstat, nil
+}
+func OpenFile(path string) (*os.File, string, int) {
+
+	fd, err := os.OpenFile(path, syscall.O_RDWR|syscall.O_CREAT|syscall.O_APPEND, 0644)
+	if err != nil {
+		panic(err)
+	}
+	fi, err := fd.Stat()
+	if err != nil {
+		panic(err)
+	}
+	return fd, sanitize(fi.Name()), int(fi.Size())
+}
 
 /*// NOTE: NOT USED
 func (mm mmap) _Mremap(size int) mmap {
