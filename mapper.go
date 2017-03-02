@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -47,6 +48,13 @@ func OpenMapper(path string) (*Mapper, error) {
 		if err = fd.Truncate(4 * MB); err != nil {
 			return nil, err
 		}
+		// mark beginning of each page with empty marker
+		for off := 0; off < (4 * MB); off += PG {
+			if _, err := fd.Write([]byte{EM}, off); err != nil {
+				log.Fatalf("OpenMapper: mark beg of each page with empty marker: ERROR BELOW\n\t%s\n", err)
+				return nil, err
+			}
+		}
 		// close the file
 		if err = fd.Close(); err != nil {
 			return nil, err
@@ -67,7 +75,7 @@ func OpenMapper(path string) (*Mapper, error) {
 		return nil, err
 	}
 	// create new mapper instance
-	m := &Mapper{fd, mm, 0, 0}
+	m := &Mapper{fd, mm, 0, bytes.IndexByte(mm, EM)}
 	// populate record count
 	// TODO: populate the record count
 	return m, nil
