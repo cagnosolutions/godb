@@ -277,13 +277,13 @@ const (
 	FLAGS uint = syscall.MAP_SHARED
 )
 
-func mmap(fd *os.File, off, len int) []byte {
+/*func mmap(fd *os.File, off, len int) []byte {
 	mm, err := mmapat(0, fd.Fd(), int64(off), int64(len), PROT, FLAGS)
 	if err != nil {
 		panic(err)
 	}
 	return mm
-}
+}*/
 
 func mmapat(addr uintptr, fd uintptr, offset, length int64, prot uint, flags uint) ([]byte, error) {
 	if length == -1 {

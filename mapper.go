@@ -18,15 +18,22 @@ const (
 	KB int = (1 << 10) // kilobyte
 	MB int = (1 << 20) // megabyte
 
-	PAGE int  = 4 * KB // page size
+	PAGE  int  = 4 * KB // page size
 	EMPTY byte = 0xC1   // empty marker
 )
 
 type Mapper struct {
-	file *os.File // underlying file
-	data mmap     // memory mapping
-	count int      // record count
+	file   *os.File // underlying file
+	data   mmap     // memory mapping
+	count  int      // record count
 	cursor int      // coursor
+}
+
+func align(size int) int {
+	if size > 0 {
+		return ((size + 2) + PAGE - 1) &^ (PAGE - 1)
+	}
+	return PAGE // 4KB
 }
 
 func OpenMapper(path string) (*Mapper, error) {
@@ -94,7 +101,7 @@ func (m *Mapper) GetMeta(pos int) *struct {
 	IsEmpty bool
 	PgCount int
 } {
-	off := pos*PAGE
+	off := pos * PAGE
 	if off%PAGE != 0 {
 		return nil
 	}
@@ -105,11 +112,11 @@ func (m *Mapper) GetMeta(pos int) *struct {
 }
 
 // return offset of next available n*pages
-func (m *Mapper) FindEmpty(n int) int {
+func (m *Mapper) FindEmpty(n int) (int, bool) {
 	var npages int
 	for m.cursor < len(m.data) {
 		if npages == n {
-			return m.cursor
+			return m.cursor / PAGE, true
 		}
 		meta := m.GetMeta(m.cursor)
 		if meta.IsEmpty {
@@ -120,7 +127,8 @@ func (m *Mapper) FindEmpty(n int) int {
 		m.cursor += meta.PgCount
 		npages = 0
 	}
-	return -1
+	// NOTE:  check back for empty pages
+	return m.cursor / PAGE, false
 }
 
 func (m *Mapper) Read(b []byte) (int, error) {
@@ -130,18 +138,44 @@ func (m *Mapper) Read(b []byte) (int, error) {
 // add a new record to the mapper at the first available slot
 // return a non-nil error if there is an issue growing the file
 func (m *Mapper) Write(b []byte) (int, error) {
-	
-	//m.FindEmpty()
-	for pos, off := 0, 0; off < len(m.data); pos, off = pos+1, off+PAGE {
-		meta := m.GetMeta(pos)
-		if  
-	}
+	// pgs is bigger number
+	pgs := align(len(b))
 
-	//for off < len(m.data) {
-	//	m.GetMeta(pos)
-	//	if m.data[]
-	//}
-	return -1, nil
+	pos, ok := m.FindEmpty(pgs)
+	if !ok {
+		if err := m.grow(); err != nil {
+			return -1, err
+		}
+	}
+	m.write(pos*PAGE, pgs, b)
+	return pos, nil
+
+}
+
+func (m *Mapper) write(off, pgs int, b []byte) {
+	m.data[off+1] = byte(pgs)
+	copy(m.data[off+2:off+2+pgs], b)
+}
+
+// grow the underlying mapped file
+func (m *Mapper) grow() error {
+	// resize the size to double the current, ie. len * 2
+	size := int64(((len(m.data) * 2) + PAGE - 1) &^ (PAGE - 1))
+	// unmap current mapping before growing underlying file...
+	m.data.Munmap()
+	// truncate underlying file to updated size, check for errors
+	if err := syscall.Ftruncate(int(m.file.Fd()), size); err != nil {
+		return err
+	}
+	// remap underlying file now that it has grown
+	mm, err := mmap_at(0, m.file.Fd(), 0, size, PROT, FLAGS)
+	if err != nil {
+		return err
+	}
+	m.data = mm
+
+	// there were no errors, so return nil
+	return nil
 }
 
 // add a new record to the engine at the first available slot
@@ -306,22 +340,6 @@ func (e *engine) delRecord(k int) error {
 	}
 	// otherwise, wipe page block at offset
 	copy(e.data[o:o+page], e.zero)
-	// there were no errors, so return nil
-	return nil
-}
-
-// grow the underlying mapped file
-func (e *engine) grow() error {
-	// resize the size to double the current, ie. len * 2
-	size := ((len(e.data) * 2) + e.page - 1) &^ (e.page - 1)
-	// unmap current mapping before growing underlying file...
-	e.munmap()
-	// truncate underlying file to updated size, check for errors
-	if err := syscall.Ftruncate(int(e.file.Fd()), int64(size)); err != nil {
-		return err
-	}
-	// remap underlying file now that it has grown
-	e.data = mmap(e.file, 0, size)
 	// there were no errors, so return nil
 	return nil
 }
