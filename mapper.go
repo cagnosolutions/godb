@@ -18,15 +18,15 @@ const (
 	KB int = (1 << 10) // kilobyte
 	MB int = (1 << 20) // megabyte
 
-	PG int  = 4 * KB // page size
-	EM byte = 0xC1   // empty marker
+	PAGE int  = 4 * KB // page size
+	EMPTY byte = 0xC1   // empty marker
 )
 
 type Mapper struct {
-	fd *os.File // underlying file
-	mm mmap     // memory mapping
-	rc int      // record count
-	cs int      // coursor
+	file *os.File // underlying file
+	data mmap     // memory mapping
+	count int      // record count
+	cursor int      // coursor
 }
 
 func OpenMapper(path string) (*Mapper, error) {
@@ -49,8 +49,8 @@ func OpenMapper(path string) (*Mapper, error) {
 			return nil, err
 		}
 		// mark beginning of each page with empty marker
-		for off := 0; off < (4 * MB); off += PG {
-			if _, err := fd.Write([]byte{EM}, off); err != nil {
+		for off := 0; off < (4 * MB); off += PAGE {
+			if _, err := fd.Write([]byte{EMPTY}, off); err != nil {
 				log.Fatalf("OpenMapper: mark beg of each page with empty marker: ERROR BELOW\n\t%s\n", err)
 				return nil, err
 			}
@@ -75,14 +75,51 @@ func OpenMapper(path string) (*Mapper, error) {
 		return nil, err
 	}
 	// create new mapper instance
-	m := &Mapper{fd, mm, 0, bytes.IndexByte(mm, EM)}
+	m := &Mapper{fd, mm, 0, 0}
 	// populate record count
-	// TODO: populate the record count
+	for m.cursor < fi.Size() {
+		meta := m.GetMeta(m.cursor)
+		if meta.IsEmpty {
+			m.cursor++
+			continue
+		}
+		m.count++
+		m.cursor += meta.PgCount
+	}
+	m.cursor = 0
 	return m, nil
 }
 
+func (m *Mapper) GetMeta(pos int) *struct {
+	IsEmpty bool
+	PgCount int
+} {
+	off := pos*PAGE
+	if off%PAGE != 0 {
+		return nil
+	}
+	return &struct {
+		IsEmpty bool
+		PgCount int
+	}{m.data[off] == EMPTY, int(m.data[off+1])}
+}
+
 // return offset of next available n*pages
-func (m *Mapper) Next(n int) int {
+func (m *Mapper) FindEmpty(n int) int {
+	var npages int
+	for m.cursor < len(m.data) {
+		if npages == n {
+			return m.cursor
+		}
+		meta := m.GetMeta(m.cursor)
+		if meta.IsEmpty {
+			m.cursor++
+			npages++
+			continue
+		}
+		m.cursor += meta.PgCount
+		npages = 0
+	}
 	return -1
 }
 
@@ -90,26 +127,67 @@ func (m *Mapper) Read(b []byte) (int, error) {
 	return -1, nil
 }
 
+// add a new record to the mapper at the first available slot
+// return a non-nil error if there is an issue growing the file
 func (m *Mapper) Write(b []byte) (int, error) {
+	
+	//m.FindEmpty()
+	for pos, off := 0, 0; off < len(m.data); pos, off = pos+1, off+PAGE {
+		meta := m.GetMeta(pos)
+		if  
+	}
+
+	//for off < len(m.data) {
+	//	m.GetMeta(pos)
+	//	if m.data[]
+	//}
 	return -1, nil
 }
 
-func (m *Mapper) ReadAt(b []byte, off int64) (int, error) {
+// add a new record to the engine at the first available slot
+// return a non-nil error if there is an issue growing the file
+func (e *engine) addRecord(r *record) (int, error) {
+	// initialize block position k at beginning of mapped file, as well as future byte offset
+	var k, o int
+	// start iterating through mapped file reigon one page at a time
+	for o < len(e.data) {
+		// checking for empty page
+		if bytes.Equal(e.data[o:o+e.page], e.zero) {
+			// found an empty page, re-use it; copy data into it
+			copy(e.data[o:o+e.page], r.data)
+			// return location of block in page offset
+			return o / e.page, nil
+		}
+		// go to next page offset
+		k++
+		o = k * e.page
+	}
+	// haven't found any empty pages, so let's grow the file
+	if err := e.grow(); err != nil {
+		return -1, err
+	}
+	// write.data to page
+	copy(e.data[o:o+e.page], r.data)
+	// return location of block in page offset
+	return o / e.page, nil
+}
+
+func (m *Mapper) ReadAt(b []byte, pos int64) (int, error) {
 	return -1, nil
 }
 
-func (m *Mapper) WriteAt(b []byte, off int64) (int, error) {
+func (m *Mapper) WriteAt(b []byte, pos int64) (int, error) {
 	return -1, nil
 }
 
 // close the mapper, return any errors encountered
 func CloseMapper(m *Mapper) error {
-	m.mm.Munmap()                        // unmap memory mappings (Munmap automatically flushes)
-	if err := m.fd.Close(); err != nil { // close underlying file
+	m.data.Munmap()                        // unmap memory mappings (Munmap automatically flushes)
+	if err := m.file.Close(); err != nil { // close underlying file
 		return err
 	}
 	// set everything to nil and gc before closing
-	m.fd, m.mm, m.rc = nil, nil, -1
+	m.file, m.data, m.count = nil, nil, -1
 	runtime.GC()
 	return nil
 }
