@@ -1,23 +1,42 @@
 package godb
 
 import (
-	"encoding/json"
 	"io"
-	"os"
+	"sync"
 )
 
+type Db struct {
+	Stores map[string]*Store
+	sync.RWMutex
+}
+
+func (d *Db) GetStore(store string) *Store {
+	d.RLock()
+	st := d.Stores[store]
+	d.RUnlock()
+	return st
+}
+
+func getStore(name string, engine ngn, index idx, marsh mrsh) *Store {
+	return &Store{
+		engine:     engine,
+		index:      index,
+		marshaller: marsh,
+	}
+}
+
 type Store struct {
-	engine ngn
-	index  idx
-	coder  cdr
+	engine     ngn
+	index      idx
+	marshaller mrsh
+}
+
+type mrsh interface {
+	Marshal() (text []byte, err error)
+	Unmarshal(text []byte) error
 }
 
 type idx interface{}
-
-type cdr interface {
-	Encode(v interface{}) error
-	Decode(v interface{}) error
-}
 
 type ngn interface {
 	io.Reader
@@ -34,21 +53,6 @@ func NewStore(n ngn) *Store {
 	}
 }
 
-type MyEngine struct {
-	*os.File
-	*json.Decoder
-	*json.Encoder
-}
-
-/*func NewMyEngine() *MyEngine {
-	f, _ := os.Open("")
-	return &MyEngine{
-		f,
-		json.NewDecoder(bytes.NewBuffer([]byte{})),
-		json.NewEncoder(bytes.NewBuffer([]byte{})),
-	}
-}*/
-
 func (s *Store) Insert(r *record) (int, error) {
 	return 0, nil
 }
@@ -64,9 +68,4 @@ func (s *Store) Return(k int) (*record, error) {
 
 func (s *Store) Delete(k int) error {
 	return nil
-}
-
-func (s *Store) Select() {
-
-	NewStore(MyEngine{})
 }
