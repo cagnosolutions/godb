@@ -1,7 +1,7 @@
 package godb
 
 import (
-	"encoding/json"
+	"encoding/binary"
 	"errors"
 	"os"
 	"path/filepath"
@@ -34,37 +34,38 @@ func CloseEngine(e *Engine) error {
 	return nil
 }
 
-func (e *Engine) Insert(k string, v interface{}) error {
-	if _, ok := e.Docs[k]; !ok {
-		// check for empty space
-		if doc, ok := e.Docs["empty.doc"]; ok {
-			b, err := json.Marshal(v)
-			if err != nil {
-				return err
-			}
-			_, err = e.WriteAt(b, doc.Off)
-			if err != nil {
-				return err
-			}
-			doc.Len = len(b)
-			e.Docs[k] = doc
-			delete(e.Docs["empty.doc"])
-		}
-		// marshal, seek, pack doc, write, etc
-		return nil
+func (e *Engine) Insert(k []byte, v []byte) error {
+	if _, exists := e.Docs[string(k)]; exists {
+		return errors.New("insert: document with that key already exists!")
 	}
-	return errors.New("insert: document with that key already exists!")
+
+	data := make([]byte, 20)
+	binary.PutVarint(data[:10], int64(len(k)))
+	binary.PutVarint(data[10:], int64(len(v)))
+
+	data = append(data, append(k, v...)...)
+
+	off, grow := e.findEmpty(len(data))
+	if grow {
+		e.grow()
+	}
+
+	e.Mmap.writeAt(data, off)
+	e.Docs[string(k)] = &Doc{off, len(data)}
+
+	return nil
 }
 
-func (e *Engine) Update(k string, v interface{}) {
+func (e *Engine) Update(k, v []byte) {
 
 }
 
-func (e *Engine) Return(k string, v interface{}) {
+func (e *Engine) Return(k []byte) []byte {
 
+	return nil
 }
 
-func (e *Engine) Delete(k string) {
+func (e *Engine) Delete(k []byte) {
 
 }
 
@@ -94,15 +95,6 @@ func OpenFile(path string) *os.File {
 	}
 	// return existing file
 	return fd
-}
-
-func MapFile(fd *os.File) mmap {
-	fi := GetFileInfo(fd)
-	mm, err := mmap_at(0, fd.Fd(), 0, fi.Size(), PROT, FLAGS)
-	if err != nil {
-		panic(err)
-	}
-	return mm
 }
 
 func GetFileInfo(fd *os.File) os.FileInfo {
