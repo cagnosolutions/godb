@@ -8,7 +8,10 @@ import (
 	"path/filepath"
 )
 
-const SLAB int64 = (1 << 22) // 4MB
+const (
+	SLAB int = (1 << 22) // 4MB
+	PAGE int = (1 << 12) // 4kb
+)
 
 type Doc struct {
 	Off int
@@ -19,6 +22,7 @@ type Engine struct {
 	File *os.File
 	Docs map[string]*Doc
 	Mmap mmap
+	Size int
 }
 
 func OpenEngine(path string) *Engine {
@@ -28,6 +32,7 @@ func OpenEngine(path string) *Engine {
 	}
 	// memory map file and return engine
 	engine.Mmap = MapFile(engine.File)
+	engine.Size = len(engine.Mmap)
 	return engine
 }
 
@@ -35,10 +40,18 @@ func CloseEngine(e *Engine) error {
 	return nil
 }
 
+func pages(size int) int64 {
+	if size > 0 {
+		return int64(((size) + PAGE - 1) &^ (PAGE - 1) / PAGE)
+	}
+	return 1
+}
+
 func encode(k, v []byte) (*bytes.Buffer, error) {
-	siz := (20 + len(k) + len(v))
+	siz := (23 + len(k) + len(v))
 	buf := bytes.NewBuffer(make([]byte, siz))
 	buf.Reset()
+	binary.PutVarint(buf.Next(3), pages(siz))
 	binary.PutVarint(buf.Next(10), int64(len(k)))
 	binary.PutVarint(buf.Next(10), int64(len(v)))
 	if n, err := buf.Write(k); n != len(k) || err != nil {
@@ -59,31 +72,60 @@ func encode(k, v []byte) (*bytes.Buffer, error) {
 	return buf, nil
 }
 
+func (e *Engine) decodeMeta(off int) (int, int, int) {
+	page, _ := binary.Varint(e.Mmap[off : off+3])
+	off += 3
+	klen, _ := binary.Varint(e.Mmap[off : off+10])
+	off += 10
+	vlen, _ := binary.Varint(e.Mmap[off : off+10])
+
+	return int(page), int(klen), int(vlen)
+}
+
+func (e *Engine) findEmpty(n int) int {
+	var pgs int
+	for off := 0; off < e.Size; off += PAGE {
+		p, _, _ := e.decodeMeta(off)
+		// found data
+		if p > 0 {
+			off += (p - 1) * PAGE
+			pgs = 0
+			continue
+		}
+		// found empty
+		pgs++
+		if pgs == n {
+			return off - (n-1)*PAGE
+		}
+	}
+	return -1
+}
+
 func (e *Engine) Insert(k []byte, v []byte) error {
 	if _, exists := e.Docs[string(k)]; exists {
 		return errors.New("insert: document with that key already exists!")
 	}
 
+	buf, err := encode(k, v)
+	if err != nil {
+		panic(err)
+	}
+	// use buf now or something
+
 	/*
-		buf, err := encode(k, v)
-		if err != nil {
-			panic(err)
-		}
-		// use buf now or something
+		data := make([]byte, 20)
+		binary.PutVarint(data[:10], int64(len(k)))
+		binary.PutVarint(data[10:], int64(len(v)))
+		data = append(data, append(k, v...)...)
 	*/
 
-	data := make([]byte, 20)
-	binary.PutVarint(data[:10], int64(len(k)))
-	binary.PutVarint(data[10:], int64(len(v)))
-	data = append(data, append(k, v...)...)
-
-	off, grow := e.findEmpty(len(data))
-	if grow {
+	off := e.findEmpty(buf.Len())
+	if off == -1 {
 		e.grow()
 	}
 
-	e.Mmap.writeAt(data, off)
-	e.Docs[string(k)] = &Doc{off, len(data)}
+	e.Mmap.writeAt(buf.Bytes(), off)
+	e.Docs[string(k)] = &Doc{off, buf.Len()}
 
 	return nil
 }
