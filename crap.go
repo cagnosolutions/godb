@@ -1,6 +1,7 @@
 package godb
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"os"
@@ -34,15 +35,46 @@ func CloseEngine(e *Engine) error {
 	return nil
 }
 
+func encode(k, v []byte) (*bytes.Buffer, error) {
+	siz := (20 + len(k) + len(v))
+	buf := bytes.NewBuffer(make([]byte, siz))
+	buf.Reset()
+	binary.PutVarint(buf.Next(10), int64(len(k)))
+	binary.PutVarint(buf.Next(10), int64(len(v)))
+	if n, err := buf.Write(k); n != len(k) || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New("engine[encode]: wrote incorrect number of bytes to buffer")
+	}
+	if n, err := buf.Write(v); n != len(v) || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New("engine[encode]: wrote incorrect number of bytes to buffer")
+	}
+	if buf.Len() != siz {
+		return nil, errors.New("engine[encode]: length of buffer is not equal to the data size")
+	}
+	return buf, nil
+}
+
 func (e *Engine) Insert(k []byte, v []byte) error {
 	if _, exists := e.Docs[string(k)]; exists {
 		return errors.New("insert: document with that key already exists!")
 	}
 
+	/*
+		buf, err := encode(k, v)
+		if err != nil {
+			panic(err)
+		}
+		// use buf now or something
+	*/
+
 	data := make([]byte, 20)
 	binary.PutVarint(data[:10], int64(len(k)))
 	binary.PutVarint(data[10:], int64(len(v)))
-
 	data = append(data, append(k, v...)...)
 
 	off, grow := e.findEmpty(len(data))
