@@ -82,7 +82,31 @@ func (e *Engine) decodeMeta(off int) (int, int, int) {
 	return int(page), int(klen), int(vlen)
 }
 
-func (e *Engine) findEmpty(n int) int {
+func (e *Engine) FindEmptyConcurrent() {
+
+}
+
+func (e *Engine) findEmptyConcurrent(npgs, beg, end int) int {
+	for pgs, off := 0, beg; off < end && (end < e.Size); {
+		p, _, _ := e.decodeMeta(off)
+		switch p {
+		case 0:
+			if pgs+1 == npgs {
+				return off - npgs*PAGE
+			}
+			pgs++
+		case 1:
+			off += PAGE
+			pgs = 0
+		default:
+			off += (p - 1) * PAGE
+			pgs = 0
+		}
+	}
+	return -1
+}
+
+func (e *Engine) findEmpty(npgs int) int {
 	var pgs int
 	for off := 0; off < e.Size; off += PAGE {
 		p, _, _ := e.decodeMeta(off)
@@ -94,8 +118,8 @@ func (e *Engine) findEmpty(n int) int {
 		}
 		// found empty
 		pgs++
-		if pgs == n {
-			return off - (n-1)*PAGE
+		if pgs == npgs {
+			return off - (npgs-1)*PAGE
 		}
 	}
 	return -1
